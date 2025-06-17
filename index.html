@@ -270,6 +270,9 @@
         </div>
         
         <div class="content">
+            <p style="font-style: italic; margin-bottom: 15px; color: #666;">
+                * Does not include repechage bouts from 2014-2016 seasons
+            </p>
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="Search for referee by name...">
                 <button onclick="searchReferee()">Search</button>
@@ -587,10 +590,13 @@
             const totalFinals = leaderboardData.reduce((sum, ref) => sum + ref.finals, 0);
             const totalPools = leaderboardData.reduce((sum, ref) => sum + ref.pools, 0);
             
+            // Determine the label based on current view
+            const refereesLabel = currentTab === 'allTime' ? 'Top 50 Most Active' : 'Top 25 Most Active';
+            
             statsContainer.innerHTML = `
                 <div class="stat-card">
                     <h3>${totalReferees}</h3>
-                    <p>Active Referees</p>
+                    <p>${refereesLabel}</p>
                 </div>
                 <div class="stat-card">
                     <h3>${totalMatches.toLocaleString()}</h3>
