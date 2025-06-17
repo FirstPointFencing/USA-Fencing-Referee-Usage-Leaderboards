@@ -738,37 +738,52 @@
                 );
             }
             
-            // Aggregate finals data
-            const finalsAggregated = {};
+            // Filter to only count Finals (Gold Medal matches)
+            filteredFinalsData = filteredFinalsData.filter(d => d.round === 'Finals');
+            
+            // First aggregate by referee and role to get totals
+            const refereeRoleTotals = {};
+            
+            // Also track weapon-specific counts
+            const refereeWeaponCounts = {};
             
             for (const record of filteredFinalsData) {
-                const key = `${record.referee}|${record.weapon}|${record.role}`;
+                const roleKey = `${record.referee}|${record.role}`;
+                const weaponKey = `${record.referee}|${record.role}|${record.weapon}`;
                 
-                if (!finalsAggregated[key]) {
-                    finalsAggregated[key] = {
+                // Aggregate total finals by referee and role
+                if (!refereeRoleTotals[roleKey]) {
+                    refereeRoleTotals[roleKey] = {
                         referee: record.referee,
-                        weapon: record.weapon,
                         role: record.role,
-                        totalFinals: 0,
-                        finals: 0,
-                        semiFinals: 0,
-                        bronzeMedals: 0
+                        totalFinals: 0
                     };
                 }
                 
-                finalsAggregated[key].totalFinals += record.count;
+                refereeRoleTotals[roleKey].totalFinals += record.count;
                 
-                if (record.round === 'Finals') {
-                    finalsAggregated[key].finals += record.count;
-                } else if (record.round === 'Semi-Finals') {
-                    finalsAggregated[key].semiFinals += record.count;
-                } else if (record.round === 'Bronze Medal Matches') {
-                    finalsAggregated[key].bronzeMedals += record.count;
+                // Track weapon-specific counts
+                if (!refereeWeaponCounts[weaponKey]) {
+                    refereeWeaponCounts[weaponKey] = 0;
                 }
+                refereeWeaponCounts[weaponKey] += record.count;
             }
             
-            // Convert to array and sort
-            let finalsLeaderboard = Object.values(finalsAggregated);
+            // Convert to array and add weapon breakdowns
+            let finalsLeaderboard = Object.values(refereeRoleTotals);
+            
+            // Add weapon breakdown to each referee entry
+            finalsLeaderboard.forEach(ref => {
+                ref.weaponBreakdown = {};
+                const weapons = ['Men\'s Saber', 'Women\'s Saber', 'Men\'s Epee', 'Women\'s Epee', 'Men\'s Foil', 'Women\'s Foil'];
+                
+                weapons.forEach(weapon => {
+                    const key = `${ref.referee}|${ref.role}|${weapon}`;
+                    ref.weaponBreakdown[weapon] = refereeWeaponCounts[key] || 0;
+                });
+            });
+            
+            // Sort by total finals
             finalsLeaderboard.sort((a, b) => b.totalFinals - a.totalFinals);
             
             // Display stats
@@ -785,7 +800,7 @@
                 </div>
                 <div class="stat-card">
                     <h3>${totalFinalsOfficiated.toLocaleString()}</h3>
-                    <p>Total Finals Officiated</p>
+                    <p>Gold Medal Matches</p>
                 </div>
                 <div class="stat-card">
                     <h3>${headRefTotal.toLocaleString()}</h3>
@@ -811,12 +826,14 @@
                         <tr>
                             <th>Rank</th>
                             <th>Referee Name</th>
-                            <th>Weapon</th>
                             <th>Role</th>
-                            <th>Total Finals</th>
-                            <th>Gold Medal</th>
-                            <th>Semi-Finals</th>
-                            <th>Bronze Medal</th>
+                            <th>Gold Medal Matches</th>
+                            <th>MS</th>
+                            <th>WS</th>
+                            <th>ME</th>
+                            <th>WE</th>
+                            <th>MF</th>
+                            <th>WF</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -827,12 +844,14 @@
                     <tr>
                         <td class="rank">${index + 1}</td>
                         <td>${referee.referee}</td>
-                        <td>${referee.weapon}</td>
                         <td>${referee.role}</td>
-                        <td>${referee.totalFinals}</td>
-                        <td>${referee.finals}</td>
-                        <td>${referee.semiFinals}</td>
-                        <td>${referee.bronzeMedals}</td>
+                        <td><strong>${referee.totalFinals}</strong></td>
+                        <td>${referee.weaponBreakdown['Men\'s Saber'] || '-'}</td>
+                        <td>${referee.weaponBreakdown['Women\'s Saber'] || '-'}</td>
+                        <td>${referee.weaponBreakdown['Men\'s Epee'] || '-'}</td>
+                        <td>${referee.weaponBreakdown['Women\'s Epee'] || '-'}</td>
+                        <td>${referee.weaponBreakdown['Men\'s Foil'] || '-'}</td>
+                        <td>${referee.weaponBreakdown['Women\'s Foil'] || '-'}</td>
                     </tr>
                 `;
             });
