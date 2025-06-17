@@ -243,6 +243,7 @@
     <div class="container">
         <div class="tabs" id="mainTabs">
             <button class="tab active" onclick="showTab('allTime')">All Time</button>
+            <button class="tab" onclick="showTab('finals')">Finals</button>
             <button class="tab" onclick="showTab('2024-2025')">2024-2025</button>
             <button class="tab" onclick="showTab('2023-2024')">2023-2024</button>
             <button class="tab" onclick="showTab('2022-2023')">2022-2023</button>
@@ -287,7 +288,7 @@
         </div>
         
         <footer style="margin-top: 40px; padding: 20px; text-align: center; color: #666; font-size: 0.9rem; border-top: 1px solid #eee;">
-            <p><strong>Project Credit:</strong> K. Hone - Data Streamlining and Design | M. Tucker Ph.D - Data Organization Advisor | C. Cheney - Creator, Project Design</p>
+            <p><strong>Project Credit:</strong> K. Hone - data streamlining and design | M. Tucker Ph.D - data advisor | C. Cheney - creator, project design</p>
         </footer>
     </div>
     
@@ -295,6 +296,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
     <script>
         let refereeData = [];
+        let finalsData = []; // Store detailed finals data
         let currentTab = 'allTime';
         let currentWeapon = 'all';
         let searchTerm = '';
@@ -356,7 +358,7 @@
                 }
             }
             
-            return aggregateRefereeData(allData);
+            return allData;
         }
         
         function getWeapon(eventCode) {
@@ -434,6 +436,38 @@
                         pools: pools,
                         finals: finals
                     });
+                    
+                    // Process finals data separately for the Finals tab
+                    const finalsRounds = ['Finals', 'Bronze Medal Matches', 'Semi-Finals'];
+                    for (const round of finalsRounds) {
+                        const assignments = parseRefAssignments(row[round]);
+                        if (assignments.ref > 0) {
+                            processedData.push({
+                                referee: refereeName,
+                                season: season,
+                                weapon: weapon,
+                                event: row['Event'],
+                                date: row['Date'],
+                                round: round,
+                                role: 'Head Referee',
+                                count: assignments.ref,
+                                isFinalsDetail: true
+                            });
+                        }
+                        if (assignments.video > 0) {
+                            processedData.push({
+                                referee: refereeName,
+                                season: season,
+                                weapon: weapon,
+                                event: row['Event'],
+                                date: row['Date'],
+                                round: round,
+                                role: 'Video Referee',
+                                count: assignments.video,
+                                isFinalsDetail: true
+                            });
+                        }
+                    }
                 }
             }
             
@@ -466,7 +500,10 @@
                 aggregated[key].finals += record.finals;
             }
             
-            return Object.values(aggregated);
+            // Also aggregate the finals details
+            const finalsDetails = data.filter(d => d.isFinalsDetail);
+            
+            return Object.values(aggregated).concat(finalsDetails);
         }
         
         function showTab(tabName) {
@@ -476,10 +513,19 @@
             const tabs = document.querySelectorAll('.tab');
             tabs.forEach(tab => {
                 tab.classList.remove('active');
-                if (tab.textContent === tabName || (tabName === 'allTime' && tab.textContent === 'All Time')) {
+                if (tab.textContent === tabName || 
+                    (tabName === 'allTime' && tab.textContent === 'All Time') ||
+                    (tabName === 'finals' && tab.textContent === 'Finals')) {
                     tab.classList.add('active');
                 }
             });
+            
+            // Show/hide weapon tabs based on current tab
+            if (tabName === 'finals') {
+                document.getElementById('subTabs').style.display = 'none';
+            } else {
+                document.getElementById('subTabs').style.display = 'flex';
+            }
             
             updateDisplay();
         }
@@ -515,6 +561,12 @@
         }
         
         function updateDisplay() {
+            // Handle Finals tab separately
+            if (currentTab === 'finals') {
+                displayFinalsLeaderboard();
+                return;
+            }
+            
             // Filter data based on current selections
             let filteredData = refereeData;
             
@@ -673,12 +725,134 @@
             container.innerHTML = tableHTML;
         }
         
+        function displayFinalsLeaderboard() {
+            // Hide weapon tabs for finals view
+            document.getElementById('subTabs').style.display = 'none';
+            
+            let filteredFinalsData = finalsData;
+            
+            // Apply search filter if active
+            if (searchTerm) {
+                filteredFinalsData = filteredFinalsData.filter(d => 
+                    d.referee.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // Aggregate finals data
+            const finalsAggregated = {};
+            
+            for (const record of filteredFinalsData) {
+                const key = `${record.referee}|${record.weapon}|${record.role}`;
+                
+                if (!finalsAggregated[key]) {
+                    finalsAggregated[key] = {
+                        referee: record.referee,
+                        weapon: record.weapon,
+                        role: record.role,
+                        totalFinals: 0,
+                        finals: 0,
+                        semiFinals: 0,
+                        bronzeMedals: 0
+                    };
+                }
+                
+                finalsAggregated[key].totalFinals += record.count;
+                
+                if (record.round === 'Finals') {
+                    finalsAggregated[key].finals += record.count;
+                } else if (record.round === 'Semi-Finals') {
+                    finalsAggregated[key].semiFinals += record.count;
+                } else if (record.round === 'Bronze Medal Matches') {
+                    finalsAggregated[key].bronzeMedals += record.count;
+                }
+            }
+            
+            // Convert to array and sort
+            let finalsLeaderboard = Object.values(finalsAggregated);
+            finalsLeaderboard.sort((a, b) => b.totalFinals - a.totalFinals);
+            
+            // Display stats
+            const statsContainer = document.getElementById('statsContainer');
+            const totalFinalsReferees = new Set(finalsLeaderboard.map(r => r.referee)).size;
+            const totalFinalsOfficiated = finalsLeaderboard.reduce((sum, ref) => sum + ref.totalFinals, 0);
+            const headRefTotal = finalsLeaderboard.filter(r => r.role === 'Head Referee').reduce((sum, ref) => sum + ref.totalFinals, 0);
+            const videoRefTotal = finalsLeaderboard.filter(r => r.role === 'Video Referee').reduce((sum, ref) => sum + ref.totalFinals, 0);
+            
+            statsContainer.innerHTML = `
+                <div class="stat-card">
+                    <h3>${totalFinalsReferees}</h3>
+                    <p>Finals Referees</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${totalFinalsOfficiated.toLocaleString()}</h3>
+                    <p>Total Finals Officiated</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${headRefTotal.toLocaleString()}</h3>
+                    <p>As Head Referee</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${videoRefTotal.toLocaleString()}</h3>
+                    <p>As Video Referee</p>
+                </div>
+            `;
+            
+            // Display leaderboard
+            const container = document.getElementById('leaderboardContainer');
+            
+            if (finalsLeaderboard.length === 0) {
+                container.innerHTML = '<p>No finals data found.</p>';
+                return;
+            }
+            
+            let tableHTML = `
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Referee Name</th>
+                            <th>Weapon</th>
+                            <th>Role</th>
+                            <th>Total Finals</th>
+                            <th>Gold Medal</th>
+                            <th>Semi-Finals</th>
+                            <th>Bronze Medal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            finalsLeaderboard.forEach((referee, index) => {
+                tableHTML += `
+                    <tr>
+                        <td class="rank">${index + 1}</td>
+                        <td>${referee.referee}</td>
+                        <td>${referee.weapon}</td>
+                        <td>${referee.role}</td>
+                        <td>${referee.totalFinals}</td>
+                        <td>${referee.finals}</td>
+                        <td>${referee.semiFinals}</td>
+                        <td>${referee.bronzeMedals}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = tableHTML;
+        }
+        
         // Initialize on load
         window.addEventListener('DOMContentLoaded', async () => {
             try {
                 // Load data from GitHub
-                refereeData = await loadDataFromGitHub();
-                console.log(`Loaded ${refereeData.length} referee records`);
+                const allData = await loadDataFromGitHub();
+                refereeData = allData.filter(d => !d.isFinalsDetail);
+                finalsData = allData.filter(d => d.isFinalsDetail);
+                console.log(`Loaded ${refereeData.length} referee records and ${finalsData.length} finals detail records`);
                 
                 // Initial display
                 updateDisplay();
