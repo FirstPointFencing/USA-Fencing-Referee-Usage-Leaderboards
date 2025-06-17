@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USA Fencing Referee Leaderboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: #1a472a;
+            color: white;
+            padding: 30px 0;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            background-color: white;
+            border: none;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab:hover {
+            background-color: #f8f8f8;
+        }
+        
+        .tab.active {
+            background-color: #1a472a;
+            color: white;
+            border-bottom-color: #2d7a3d;
+        }
+        
+        .sub-tabs {
+            display: none;
+            flex-wrap: wrap;
+            background-color: #f8f8f8;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        
+        .sub-tabs.active {
+            display: flex;
+        }
+        
+        .sub-tab {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .sub-tab:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .sub-tab.active {
+            background-color: #2d7a3d;
+            color: white;
+            border-color: #2d7a3d;
+        }
+        
+        .content {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .leaderboard-table th {
+            background-color: #1a472a;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        
+        .leaderboard-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .leaderboard-table tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .rank {
+            font-weight: bold;
+            color: #1a472a;
+        }
+        
+        .percentage {
+            font-weight: 500;
+        }
+        
+        .search-box {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .search-box input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .search-box button {
+            padding: 10px 20px;
+            background-color: #1a472a;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .search-box button:hover {
+            background-color: #2d7a3d;
+        }
+        
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background-color: #f8f8f8;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            color: #1a472a;
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+            color: #666;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.1rem;
+            color: #d32f2f;
+        }
+        
+        @media (max-width: 768px) {
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                border-bottom: 1px solid #eee;
+            }
+            
+            .leaderboard-table {
+                font-size: 0.9rem;
+            }
+            
+            .leaderboard-table th,
+            .leaderboard-table td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>USA Fencing Referee Leaderboard</h1>
+        <p>National Level Referee Usage Statistics</p>
+    </header>
+    
+    <div class="container">
+        <div class="tabs" id="mainTabs">
+            <button class="tab active" onclick="showTab('allTime')">All Time</button>
+            <button class="tab" onclick="showTab('2024-2025')">2024-2025</button>
+            <button class="tab" onclick="showTab('2023-2024')">2023-2024</button>
+            <button class="tab" onclick="showTab('2022-2023')">2022-2023</button>
+            <button class="tab" onclick="showTab('2021-2022')">2021-2022</button>
+            <button class="tab" onclick="showTab('2020-2021')">2020-2021</button>
+            <button class="tab" onclick="showTab('2019-2020')">2019-2020</button>
+            <button class="tab" onclick="showTab('2018-2019')">2018-2019</button>
+            <button class="tab" onclick="showTab('2017-2018')">2017-2018</button>
+            <button class="tab" onclick="showTab('2016-2017')">2016-2017</button>
+            <button class="tab" onclick="showTab('2015-2016')">2015-2016</button>
+            <button class="tab" onclick="showTab('2014-2015')">2014-2015</button>
+        </div>
+        
+        <div id="subTabs" class="sub-tabs active">
+            <button class="sub-tab active" onclick="showWeapon('all')">All Weapons</button>
+            <button class="sub-tab" onclick="showWeapon('Men\'s Saber')">Men's Saber</button>
+            <button class="sub-tab" onclick="showWeapon('Women\'s Saber')">Women's Saber</button>
+            <button class="sub-tab" onclick="showWeapon('Men\'s Epee')">Men's Epee</button>
+            <button class="sub-tab" onclick="showWeapon('Women\'s Epee')">Women's Epee</button>
+            <button class="sub-tab" onclick="showWeapon('Men\'s Foil')">Men's Foil</button>
+            <button class="sub-tab" onclick="showWeapon('Women\'s Foil')">Women's Foil</button>
+        </div>
+        
+        <div class="content">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search for referee by name...">
+                <button onclick="searchReferee()">Search</button>
+                <button onclick="clearSearch()">Clear</button>
+            </div>
+            
+            <div id="statsContainer" class="stats-summary"></div>
+            
+            <div id="leaderboardContainer">
+                <div class="loading">Loading referee data...</div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <script>
+        let refereeData = [];
+        let currentTab = 'allTime';
+        let currentWeapon = 'all';
+        let searchTerm = '';
+        
+        // Function to load data from GitHub repository
+        async function loadDataFromGitHub() {
+            // Using the raw GitHub content URL for your repository
+            const baseURL = 'https://raw.githubusercontent.com/FirstPointFencing/USA-Fencing-Referee-Usage-Leaderboards/main/data/';
+            
+            const files = [
+                { filename: 'Referee_Usage_20142015.csv', season: '2014-2015' },
+                { filename: 'Referee_Usage_20152016.csv', season: '2015-2016' },
+                { filename: 'Referee_Usage_20162017.csv', season: '2016-2017' },
+                { filename: 'Referee_Usage_20172018.csv', season: '2017-2018' },
+                { filename: 'Referee_Usage_20182019.csv', season: '2018-2019' },
+                { filename: 'Referee_Usage_20192020.csv', season: '2019-2020' },
+                { filename: 'Referee_Usage_20202021.csv', season: '2020-2021' },
+                { filename: 'Referee_Usage_20212022.csv', season: '2021-2022' },
+                { filename: 'Referee_Usage_20222023_Part1.csv', season: '2022-2023' },
+                { filename: 'Referee_Usage_20222023_Part2.csv', season: '2022-2023' },
+                { filename: 'Referee_Usage_20232024_Part1.csv', season: '2023-2024' },
+                { filename: 'Referee_Usage_20232024_Part2.csv', season: '2023-2024' },
+                { filename: 'Referee_Usage_20242025.csv', season: '2024-2025' }
+            ];
+            
+            let allData = [];
+            let loadedCount = 0;
+            
+            for (const file of files) {
+                try {
+                    console.log(`Loading ${file.filename}...`);
+                    const response = await fetch(baseURL + file.filename);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const text = await response.text();
+                    
+                    const parsed = Papa.parse(text, {
+                        header: true,
+                        dynamicTyping: true,
+                        skipEmptyLines: true,
+                        delimitersToGuess: [',', '\t', '|', ';']
+                    });
+                    
+                    const processedData = processCSVData(parsed.data, file.season);
+                    allData = allData.concat(processedData);
+                    loadedCount++;
+                    
+                    console.log(`Loaded ${file.filename}: ${processedData.length} records`);
+                    
+                    // Update loading progress
+                    document.getElementById('leaderboardContainer').innerHTML = 
+                        `<div class="loading">Loading referee data... (${loadedCount}/${files.length} files)</div>`;
+                    
+                } catch (error) {
+                    console.error(`Error loading ${file.filename}:`, error);
+                }
+            }
+            
+            return aggregateRefereeData(allData);
+        }
+        
+        function getWeapon(eventCode) {
+            if (!eventCode) return 'Unknown';
+            const weaponCode = eventCode.slice(-2).toUpperCase();
+            const weaponMap = {
+                'MS': 'Men\'s Saber',
+                'WS': 'Women\'s Saber',
+                'ME': 'Men\'s Epee',
+                'WE': 'Women\'s Epee',
+                'MF': 'Men\'s Foil',
+                'WF': 'Women\'s Foil'
+            };
+            return weaponMap[weaponCode] || 'Unknown';
+        }
+        
+        function parseRefAssignments(cellValue) {
+            if (!cellValue || typeof cellValue !== 'string') return { ref: 0, video: 0 };
+            const refMatch = cellValue.match(/Ref:\s*(\d+)/);
+            const videoMatch = cellValue.match(/Video:\s*(\d+)/);
+            return {
+                ref: refMatch ? parseInt(refMatch[1]) : 0,
+                video: videoMatch ? parseInt(videoMatch[1]) : 0
+            };
+        }
+        
+        function processCSVData(data, season) {
+            const processedData = [];
+            
+            for (const row of data) {
+                const lastName = row['Last Name'] || row[''];
+                const firstName = row['First Name'];
+                
+                if (!lastName || !firstName) continue;
+                
+                const refereeName = `${lastName}, ${firstName}`;
+                const weapon = getWeapon(row['Event']);
+                
+                let totalRef = 0;
+                let totalVideo = 0;
+                let pools = 0;
+                let finals = 0;
+                
+                // Process pools
+                const poolAssignments = parseRefAssignments(row['Pools']);
+                pools = poolAssignments.ref + poolAssignments.video;
+                totalRef += poolAssignments.ref;
+                totalVideo += poolAssignments.video;
+                
+                // Process each round
+                const rounds = ['Table of 512', 'Table of 256', 'Table of 128', 'Table of 64', 
+                               'Table of 32', 'Table of 16', 'Table of 8', 'Semi-Finals', 
+                               'Bronze Medal Matches', 'Finals'];
+                
+                for (const round of rounds) {
+                    const assignments = parseRefAssignments(row[round]);
+                    totalRef += assignments.ref;
+                    totalVideo += assignments.video;
+                    
+                    if (['Finals', 'Bronze Medal Matches', 'Semi-Finals'].includes(round)) {
+                        finals += assignments.ref + assignments.video;
+                    }
+                }
+                
+                if (totalRef > 0 || totalVideo > 0) {
+                    processedData.push({
+                        referee: refereeName,
+                        season: season,
+                        weapon: weapon,
+                        event: row['Event'],
+                        date: row['Date'],
+                        totalMatches: totalRef + totalVideo,
+                        headRefMatches: totalRef,
+                        videoRefMatches: totalVideo,
+                        pools: pools,
+                        finals: finals
+                    });
+                }
+            }
+            
+            return processedData;
+        }
+        
+        function aggregateRefereeData(data) {
+            const aggregated = {};
+            
+            for (const record of data) {
+                const key = `${record.referee}|${record.season}|${record.weapon}`;
+                
+                if (!aggregated[key]) {
+                    aggregated[key] = {
+                        referee: record.referee,
+                        season: record.season,
+                        weapon: record.weapon,
+                        totalMatches: 0,
+                        headRefMatches: 0,
+                        videoRefMatches: 0,
+                        pools: 0,
+                        finals: 0
+                    };
+                }
+                
+                aggregated[key].totalMatches += record.totalMatches;
+                aggregated[key].headRefMatches += record.headRefMatches;
+                aggregated[key].videoRefMatches += record.videoRefMatches;
+                aggregated[key].pools += record.pools;
+                aggregated[key].finals += record.finals;
+            }
+            
+            return Object.values(aggregated);
+        }
+        
+        function showTab(tabName) {
+            currentTab = tabName;
+            
+            // Update tab UI
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.textContent === tabName || (tabName === 'allTime' && tab.textContent === 'All Time')) {
+                    tab.classList.add('active');
+                }
+            });
+            
+            updateDisplay();
+        }
+        
+        function showWeapon(weapon) {
+            currentWeapon = weapon;
+            
+            // Update sub-tab UI
+            const subTabs = document.querySelectorAll('.sub-tab');
+            subTabs.forEach(tab => {
+                tab.classList.remove('active');
+                if ((weapon === 'all' && tab.textContent === 'All Weapons') || tab.textContent === weapon) {
+                    tab.classList.add('active');
+                }
+            });
+            
+            updateDisplay();
+        }
+        
+        function searchReferee() {
+            searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            updateDisplay();
+        }
+        
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            searchTerm = '';
+            updateDisplay();
+        }
+        
+        function updateDisplay() {
+            // Filter data based on current selections
+            let filteredData = refereeData;
+            
+            // Filter by season
+            if (currentTab !== 'allTime') {
+                filteredData = filteredData.filter(d => d.season === currentTab);
+            }
+            
+            // Filter by weapon
+            if (currentWeapon !== 'all') {
+                filteredData = filteredData.filter(d => d.weapon === currentWeapon);
+            }
+            
+            // Filter by search term
+            if (searchTerm) {
+                filteredData = filteredData.filter(d => 
+                    d.referee.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // Aggregate by referee
+            const refereeAggregated = {};
+            
+            for (const record of filteredData) {
+                const referee = record.referee;
+                
+                if (!refereeAggregated[referee]) {
+                    refereeAggregated[referee] = {
+                        referee: referee,
+                        totalMatches: 0,
+                        headRefMatches: 0,
+                        videoRefMatches: 0,
+                        pools: 0,
+                        finals: 0,
+                        weapons: new Set(),
+                        seasons: new Set()
+                    };
+                }
+                
+                refereeAggregated[referee].totalMatches += record.totalMatches;
+                refereeAggregated[referee].headRefMatches += record.headRefMatches;
+                refereeAggregated[referee].videoRefMatches += record.videoRefMatches;
+                refereeAggregated[referee].pools += record.pools;
+                refereeAggregated[referee].finals += record.finals;
+                refereeAggregated[referee].weapons.add(record.weapon);
+                refereeAggregated[referee].seasons.add(record.season);
+            }
+            
+            // Convert to array and sort
+            let leaderboardData = Object.values(refereeAggregated);
+            leaderboardData.sort((a, b) => b.totalMatches - a.totalMatches);
+            
+            // Limit to top N based on view
+            const limit = currentTab === 'allTime' ? 50 : 25;
+            leaderboardData = leaderboardData.slice(0, limit);
+            
+            // Display statistics
+            displayStats(leaderboardData, filteredData);
+            
+            // Display leaderboard
+            displayLeaderboard(leaderboardData);
+        }
+        
+        function displayStats(leaderboardData, rawData) {
+            const statsContainer = document.getElementById('statsContainer');
+            
+            const totalReferees = leaderboardData.length;
+            const totalMatches = leaderboardData.reduce((sum, ref) => sum + ref.totalMatches, 0);
+            const totalFinals = leaderboardData.reduce((sum, ref) => sum + ref.finals, 0);
+            const totalPools = leaderboardData.reduce((sum, ref) => sum + ref.pools, 0);
+            
+            statsContainer.innerHTML = `
+                <div class="stat-card">
+                    <h3>${totalReferees}</h3>
+                    <p>Active Referees</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${totalMatches.toLocaleString()}</h3>
+                    <p>Total Matches</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${totalFinals.toLocaleString()}</h3>
+                    <p>Finals Officiated</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${totalPools.toLocaleString()}</h3>
+                    <p>Pools Officiated</p>
+                </div>
+            `;
+        }
+        
+        function displayLeaderboard(data) {
+            const container = document.getElementById('leaderboardContainer');
+            
+            if (data.length === 0) {
+                container.innerHTML = '<p>No data found for the selected criteria.</p>';
+                return;
+            }
+            
+            let tableHTML = `
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Referee Name</th>
+                            <th>Total Matches</th>
+                            <th>Finals</th>
+                            <th>Pools</th>
+                            <th>Head Ref</th>
+                            <th>Video Ref</th>
+                            <th>Head Ref %</th>
+                            ${currentTab === 'allTime' ? '<th>Seasons Active</th>' : ''}
+                            ${currentWeapon === 'all' ? '<th>Weapons</th>' : ''}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.forEach((referee, index) => {
+                const headRefPercentage = referee.totalMatches > 0 
+                    ? ((referee.headRefMatches / referee.totalMatches) * 100).toFixed(1)
+                    : '0.0';
+                
+                tableHTML += `
+                    <tr>
+                        <td class="rank">${index + 1}</td>
+                        <td>${referee.referee}</td>
+                        <td>${referee.totalMatches}</td>
+                        <td>${referee.finals}</td>
+                        <td>${referee.pools}</td>
+                        <td>${referee.headRefMatches}</td>
+                        <td>${referee.videoRefMatches}</td>
+                        <td class="percentage">${headRefPercentage}%</td>
+                        ${currentTab === 'allTime' ? `<td>${referee.seasons.size}</td>` : ''}
+                        ${currentWeapon === 'all' ? `<td>${Array.from(referee.weapons).join(', ')}</td>` : ''}
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = tableHTML;
+        }
+        
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Load data from GitHub
+                refereeData = await loadDataFromGitHub();
+                console.log(`Loaded ${refereeData.length} referee records`);
+                
+                // Initial display
+                updateDisplay();
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('leaderboardContainer').innerHTML = 
+                    '<div class="error">Error loading data. Please check the console for details.</div>';
+            }
+        });
+    </script>
+</body>
+</html>
