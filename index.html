@@ -741,57 +741,49 @@
             // Filter to only count Finals (Gold Medal matches)
             filteredFinalsData = filteredFinalsData.filter(d => d.round === 'Finals');
             
-            // First aggregate by referee and role to get totals
-            const refereeRoleTotals = {};
-            
-            // Also track weapon-specific counts
-            const refereeWeaponCounts = {};
+            // Aggregate by referee (combining head and video roles)
+            const refereeAggregated = {};
             
             for (const record of filteredFinalsData) {
-                const roleKey = `${record.referee}|${record.role}`;
-                const weaponKey = `${record.referee}|${record.role}|${record.weapon}`;
+                const referee = record.referee;
                 
-                // Aggregate total finals by referee and role
-                if (!refereeRoleTotals[roleKey]) {
-                    refereeRoleTotals[roleKey] = {
-                        referee: record.referee,
-                        role: record.role,
-                        totalFinals: 0
+                if (!refereeAggregated[referee]) {
+                    refereeAggregated[referee] = {
+                        referee: referee,
+                        totalFinals: 0,
+                        headRefCount: 0,
+                        videoRefCount: 0,
+                        weaponBreakdown: {
+                            'Men\'s Saber': 0,
+                            'Women\'s Saber': 0,
+                            'Men\'s Epee': 0,
+                            'Women\'s Epee': 0,
+                            'Men\'s Foil': 0,
+                            'Women\'s Foil': 0
+                        }
                     };
                 }
                 
-                refereeRoleTotals[roleKey].totalFinals += record.count;
+                refereeAggregated[referee].totalFinals += record.count;
+                refereeAggregated[referee].weaponBreakdown[record.weapon] += record.count;
                 
-                // Track weapon-specific counts
-                if (!refereeWeaponCounts[weaponKey]) {
-                    refereeWeaponCounts[weaponKey] = 0;
+                if (record.role === 'Head Referee') {
+                    refereeAggregated[referee].headRefCount += record.count;
+                } else if (record.role === 'Video Referee') {
+                    refereeAggregated[referee].videoRefCount += record.count;
                 }
-                refereeWeaponCounts[weaponKey] += record.count;
             }
             
-            // Convert to array and add weapon breakdowns
-            let finalsLeaderboard = Object.values(refereeRoleTotals);
-            
-            // Add weapon breakdown to each referee entry
-            finalsLeaderboard.forEach(ref => {
-                ref.weaponBreakdown = {};
-                const weapons = ['Men\'s Saber', 'Women\'s Saber', 'Men\'s Epee', 'Women\'s Epee', 'Men\'s Foil', 'Women\'s Foil'];
-                
-                weapons.forEach(weapon => {
-                    const key = `${ref.referee}|${ref.role}|${weapon}`;
-                    ref.weaponBreakdown[weapon] = refereeWeaponCounts[key] || 0;
-                });
-            });
-            
-            // Sort by total finals
+            // Convert to array and sort
+            let finalsLeaderboard = Object.values(refereeAggregated);
             finalsLeaderboard.sort((a, b) => b.totalFinals - a.totalFinals);
             
             // Display stats
             const statsContainer = document.getElementById('statsContainer');
-            const totalFinalsReferees = new Set(finalsLeaderboard.map(r => r.referee)).size;
+            const totalFinalsReferees = finalsLeaderboard.length;
             const totalFinalsOfficiated = finalsLeaderboard.reduce((sum, ref) => sum + ref.totalFinals, 0);
-            const headRefTotal = finalsLeaderboard.filter(r => r.role === 'Head Referee').reduce((sum, ref) => sum + ref.totalFinals, 0);
-            const videoRefTotal = finalsLeaderboard.filter(r => r.role === 'Video Referee').reduce((sum, ref) => sum + ref.totalFinals, 0);
+            const headRefTotal = finalsLeaderboard.reduce((sum, ref) => sum + ref.headRefCount, 0);
+            const videoRefTotal = finalsLeaderboard.reduce((sum, ref) => sum + ref.videoRefCount, 0);
             
             statsContainer.innerHTML = `
                 <div class="stat-card">
@@ -800,7 +792,7 @@
                 </div>
                 <div class="stat-card">
                     <h3>${totalFinalsOfficiated.toLocaleString()}</h3>
-                    <p>Gold Medal Matches</p>
+                    <p>Total Finals</p>
                 </div>
                 <div class="stat-card">
                     <h3>${headRefTotal.toLocaleString()}</h3>
@@ -826,8 +818,9 @@
                         <tr>
                             <th>Rank</th>
                             <th>Referee Name</th>
-                            <th>Role</th>
-                            <th>Gold Medal Matches</th>
+                            <th>Finals</th>
+                            <th>Finals Head Ref</th>
+                            <th>Finals Video Ref</th>
                             <th>MS</th>
                             <th>WS</th>
                             <th>ME</th>
@@ -844,8 +837,9 @@
                     <tr>
                         <td class="rank">${index + 1}</td>
                         <td>${referee.referee}</td>
-                        <td>${referee.role}</td>
                         <td><strong>${referee.totalFinals}</strong></td>
+                        <td>${referee.headRefCount}</td>
+                        <td>${referee.videoRefCount}</td>
                         <td>${referee.weaponBreakdown['Men\'s Saber'] || '-'}</td>
                         <td>${referee.weaponBreakdown['Women\'s Saber'] || '-'}</td>
                         <td>${referee.weaponBreakdown['Men\'s Epee'] || '-'}</td>
