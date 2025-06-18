@@ -266,7 +266,33 @@
             color: #d32f2f;
         }
         
-        @media (max-width: 768px) {
+        .season-selector {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .season-selector label {
+            font-weight: 600;
+            color: #1a472a;
+        }
+        
+        .season-selector select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            background-color: white;
+            cursor: pointer;
+        }
+        
+        .season-selector select:hover {
+            border-color: #1a472a;
+        }
             .tabs {
                 flex-direction: column;
             }
@@ -324,7 +350,15 @@
         </div>
         
         <div id="nacSubTabs" class="sub-tabs" style="display: none;">
-            <!-- NAC tabs will be dynamically generated here -->
+            <div class="season-selector">
+                <label for="nacSeasonSelect">Select Season:</label>
+                <select id="nacSeasonSelect" onchange="filterNACsBySeason(this.value)">
+                    <option value="all">All Seasons</option>
+                </select>
+            </div>
+            <div id="nacTabsContainer">
+                <!-- NAC tabs will be dynamically generated here -->
+            </div>
         </div>
         
         <div class="content">
@@ -363,6 +397,7 @@
         let selectedSuggestionIndex = -1;
         let currentNAC = null;
         let currentNACSeason = null;
+        let nacSeasonFilter = 'all';
         
         // Function to load data from GitHub repository
         async function loadDataFromGitHub() {
@@ -967,10 +1002,12 @@
         }
         
         function generateNACTabs() {
-            const nacTabsContainer = document.getElementById('nacSubTabs');
+            const nacTabsContainer = document.getElementById('nacTabsContainer');
+            const seasonSelect = document.getElementById('nacSeasonSelect');
             
             // Get all unique season-NAC combinations
             const nacEvents = {};
+            const seasons = new Set();
             
             refereeData.forEach(record => {
                 const date = new Date(record.date);
@@ -985,6 +1022,8 @@
                     season = `${year - 1}-${year}`;
                 }
                 
+                seasons.add(season);
+                
                 // Determine the NAC
                 let nacName;
                 let nacKey;
@@ -994,6 +1033,12 @@
                 } else if (date.getMonth() === 6 && date.getDate() <= 15) { // July 1-15
                     nacName = 'Summer Nationals';
                     nacKey = `${season}|Summer Nationals`;
+                } else if (date.getMonth() === 4) { // May
+                    nacName = 'May Nationals';
+                    nacKey = `${season}|May Nationals`;
+                } else if (date.getMonth() === 5 && date.getDate() < 27) { // June 1-26
+                    nacName = 'June Nationals';
+                    nacKey = `${season}|June Nationals`;
                 } else {
                     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                     nacName = monthNames[month] + ' NAC';
@@ -1017,6 +1062,14 @@
                 }
             });
             
+            // Populate season dropdown
+            const sortedSeasons = Array.from(seasons).sort((a, b) => b.localeCompare(a));
+            let seasonOptions = '<option value="all">All Seasons</option>';
+            sortedSeasons.forEach(season => {
+                seasonOptions += `<option value="${season}">${season}</option>`;
+            });
+            seasonSelect.innerHTML = seasonOptions;
+            
             // Sort NACs by season and month
             const sortedNACs = Object.values(nacEvents).sort((a, b) => {
                 if (a.season !== b.season) {
@@ -1025,12 +1078,25 @@
                 return a.sortOrder - b.sortOrder;
             });
             
+            // Generate tabs HTML based on filter
+            displayFilteredNACTabs(sortedNACs);
+        }
+        
+        function displayFilteredNACTabs(sortedNACs) {
+            const nacTabsContainer = document.getElementById('nacTabsContainer');
+            
+            // Filter NACs based on selected season
+            let filteredNACs = sortedNACs;
+            if (nacSeasonFilter !== 'all') {
+                filteredNACs = sortedNACs.filter(nac => nac.season === nacSeasonFilter);
+            }
+            
             // Generate tabs HTML
             let tabsHTML = '<button class="sub-tab active" onclick="showNAC(\'all\', \'all\')">All NACs</button>';
             
             let currentSeason = '';
-            sortedNACs.forEach(nac => {
-                if (nac.season !== currentSeason) {
+            filteredNACs.forEach(nac => {
+                if (nacSeasonFilter === 'all' && nac.season !== currentSeason) {
                     if (currentSeason !== '') {
                         tabsHTML += '<div style="width: 100%; height: 1px; background-color: #ddd; margin: 10px 0;"></div>';
                     }
@@ -1041,6 +1107,74 @@
             });
             
             nacTabsContainer.innerHTML = tabsHTML;
+        }
+        
+        function filterNACsBySeason(season) {
+            nacSeasonFilter = season;
+            
+            // Get all NAC events again to refilter
+            const nacEvents = {};
+            
+            refereeData.forEach(record => {
+                const date = new Date(record.date);
+                const month = date.getMonth();
+                const year = date.getFullYear();
+                
+                let recordSeason;
+                if (month >= 7) {
+                    recordSeason = `${year}-${year + 1}`;
+                } else {
+                    recordSeason = `${year - 1}-${year}`;
+                }
+                
+                // Determine the NAC
+                let nacName;
+                let nacKey;
+                if (date.getMonth() === 5 && date.getDate() >= 27) {
+                    nacName = 'Summer Nationals';
+                    nacKey = `${recordSeason}|Summer Nationals`;
+                } else if (date.getMonth() === 6 && date.getDate() <= 15) {
+                    nacName = 'Summer Nationals';
+                    nacKey = `${recordSeason}|Summer Nationals`;
+                } else if (date.getMonth() === 4) {
+                    nacName = 'May Nationals';
+                    nacKey = `${recordSeason}|May Nationals`;
+                } else if (date.getMonth() === 5 && date.getDate() < 27) {
+                    nacName = 'June Nationals';
+                    nacKey = `${recordSeason}|June Nationals`;
+                } else {
+                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    nacName = monthNames[month] + ' NAC';
+                    
+                    if (month === 1) {
+                        nacName = 'Jr Olympics';
+                    }
+                    
+                    nacKey = `${recordSeason}|${nacName}`;
+                }
+                
+                if (!nacEvents[nacKey]) {
+                    nacEvents[nacKey] = {
+                        season: recordSeason,
+                        nacName: nacName,
+                        displayName: `${nacName} ${recordSeason.slice(-4)}`,
+                        sortOrder: month === 5 || month === 6 ? 99 : month,
+                        key: nacKey
+                    };
+                }
+            });
+            
+            const sortedNACs = Object.values(nacEvents).sort((a, b) => {
+                if (a.season !== b.season) {
+                    return b.season.localeCompare(a.season);
+                }
+                return a.sortOrder - b.sortOrder;
+            });
+            
+            displayFilteredNACTabs(sortedNACs);
+            
+            // Reset to All NACs view
+            showNAC('all', 'all');
         }
         
         function showNAC(season, nacName) {
@@ -1086,10 +1220,14 @@
                                (date.getMonth() === 6 && date.getDate() <= 15);
                     } else if (currentNAC === 'Jr Olympics') {
                         return date.getMonth() === 1;
+                    } else if (currentNAC === 'May Nationals') {
+                        return date.getMonth() === 4;
+                    } else if (currentNAC === 'June Nationals') {
+                        return date.getMonth() === 5 && date.getDate() < 27;
                     } else {
                         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                         const nacMonth = monthNames[month] + ' NAC';
-                        return nacMonth === currentNAC && month !== 1; // Exclude Feb from NAC (it's Jr Olympics)
+                        return nacMonth === currentNAC && month !== 1 && month !== 4 && month !== 5; // Exclude Feb, May, June from NAC
                     }
                 });
             }
