@@ -810,6 +810,22 @@
                     ? ((referee.headRefMatches / referee.totalMatches) * 100).toFixed(1)
                     : '0.0';
                 
+                // Simplify weapons display
+                let weaponsDisplay = '';
+                if (currentWeapon === 'all') {
+                    const weapons = Array.from(referee.weapons);
+                    const hasEpee = weapons.some(w => w.includes('Epee'));
+                    const hasFoil = weapons.some(w => w.includes('Foil'));
+                    const hasSaber = weapons.some(w => w.includes('Saber'));
+                    
+                    const simplifiedWeapons = [];
+                    if (hasSaber) simplifiedWeapons.push('Saber');
+                    if (hasEpee) simplifiedWeapons.push('Epee');
+                    if (hasFoil) simplifiedWeapons.push('Foil');
+                    
+                    weaponsDisplay = simplifiedWeapons.join(', ');
+                }
+                
                 tableHTML += `
                     <tr>
                         <td class="rank">${index + 1}</td>
@@ -821,7 +837,7 @@
                         <td>${referee.videoRefMatches}</td>
                         <td class="percentage">${headRefPercentage}%</td>
                         ${currentTab === 'allTime' ? `<td>${referee.seasons.size}</td>` : ''}
-                        ${currentWeapon === 'all' ? `<td>${Array.from(referee.weapons).join(', ')}</td>` : ''}
+                        ${currentWeapon === 'all' ? `<td>${weaponsDisplay}</td>` : ''}
                     </tr>
                 `;
             });
