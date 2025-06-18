@@ -127,6 +127,22 @@
             font-weight: 600;
             position: sticky;
             top: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .leaderboard-table th:hover {
+            background-color: #2d7a3d;
+        }
+        
+        .leaderboard-table th.sort-asc::after {
+            content: " ▲";
+            font-size: 0.8em;
+        }
+        
+        .leaderboard-table th.sort-desc::after {
+            content: " ▼";
+            font-size: 0.8em;
         }
         
         .leaderboard-table td {
@@ -151,6 +167,7 @@
             margin-bottom: 20px;
             display: flex;
             gap: 10px;
+            position: relative;
         }
         
         .search-box input {
@@ -173,6 +190,41 @@
         
         .search-box button:hover {
             background-color: #2d7a3d;
+        }
+        
+        .autocomplete-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .autocomplete-suggestions.active {
+            display: block;
+        }
+        
+        .autocomplete-suggestion {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .autocomplete-suggestion:hover,
+        .autocomplete-suggestion.selected {
+            background-color: #f0f0f0;
+        }
+        
+        .autocomplete-suggestion:last-child {
+            border-bottom: none;
         }
         
         .stats-summary {
@@ -275,9 +327,10 @@
                 * Does not include repechage bouts from 2014-2016 seasons
             </p>
             <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Search for referee by name...">
+                <input type="text" id="searchInput" placeholder="Search for referee by name..." autocomplete="off">
                 <button onclick="searchReferee()">Search</button>
                 <button onclick="clearSearch()">Clear</button>
+                <div id="autocompleteSuggestions" class="autocomplete-suggestions"></div>
             </div>
             
             <div id="statsContainer" class="stats-summary"></div>
@@ -300,6 +353,9 @@
         let currentTab = 'allTime';
         let currentWeapon = 'all';
         let searchTerm = '';
+        let sortColumn = null;
+        let sortDirection = 'desc';
+        let selectedSuggestionIndex = -1;
         
         // Function to load data from GitHub repository
         async function loadDataFromGitHub() {
@@ -625,7 +681,60 @@
             
             // Convert to array and sort
             let leaderboardData = Object.values(refereeAggregated);
-            leaderboardData.sort((a, b) => b.totalMatches - a.totalMatches);
+            
+            // Apply sorting
+            if (sortColumn !== null) {
+                leaderboardData.sort((a, b) => {
+                    let aVal, bVal;
+                    
+                    switch(sortColumn) {
+                        case 'referee':
+                            aVal = a.referee;
+                            bVal = b.referee;
+                            break;
+                        case 'totalMatches':
+                            aVal = a.totalMatches;
+                            bVal = b.totalMatches;
+                            break;
+                        case 'finals':
+                            aVal = a.finals;
+                            bVal = b.finals;
+                            break;
+                        case 'pools':
+                            aVal = a.pools;
+                            bVal = b.pools;
+                            break;
+                        case 'headRefMatches':
+                            aVal = a.headRefMatches;
+                            bVal = b.headRefMatches;
+                            break;
+                        case 'videoRefMatches':
+                            aVal = a.videoRefMatches;
+                            bVal = b.videoRefMatches;
+                            break;
+                        case 'headRefPercentage':
+                            aVal = a.totalMatches > 0 ? (a.headRefMatches / a.totalMatches) : 0;
+                            bVal = b.totalMatches > 0 ? (b.headRefMatches / b.totalMatches) : 0;
+                            break;
+                        case 'seasons':
+                            aVal = a.seasons.size;
+                            bVal = b.seasons.size;
+                            break;
+                        default:
+                            aVal = a.totalMatches;
+                            bVal = b.totalMatches;
+                    }
+                    
+                    if (typeof aVal === 'string') {
+                        return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                    } else {
+                        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+                    }
+                });
+            } else {
+                // Default sort by total matches
+                leaderboardData.sort((a, b) => b.totalMatches - a.totalMatches);
+            }
             
             // Limit to top N based on view
             const limit = currentTab === 'allTime' ? 50 : 25;
@@ -681,15 +790,15 @@
                 <table class="leaderboard-table">
                     <thead>
                         <tr>
-                            <th>Rank</th>
-                            <th>Referee Name</th>
-                            <th>Total Matches</th>
-                            <th>Finals</th>
-                            <th>Pools</th>
-                            <th>Head Ref</th>
-                            <th>Video Ref</th>
-                            <th>Head Ref %</th>
-                            ${currentTab === 'allTime' ? '<th>Seasons Active</th>' : ''}
+                            <th onclick="sortTable('rank')">Rank</th>
+                            <th onclick="sortTable('referee')">Referee Name</th>
+                            <th onclick="sortTable('totalMatches')">Total Matches</th>
+                            <th onclick="sortTable('finals')">Finals</th>
+                            <th onclick="sortTable('pools')">Pools</th>
+                            <th onclick="sortTable('headRefMatches')">Head Ref</th>
+                            <th onclick="sortTable('videoRefMatches')">Video Ref</th>
+                            <th onclick="sortTable('headRefPercentage')">Head Ref %</th>
+                            ${currentTab === 'allTime' ? '<th onclick="sortTable(\'seasons\')">Seasons Active</th>' : ''}
                             ${currentWeapon === 'all' ? '<th>Weapons</th>' : ''}
                         </tr>
                     </thead>
@@ -723,6 +832,102 @@
             `;
             
             container.innerHTML = tableHTML;
+        }
+        
+        function sortTable(column) {
+            if (sortColumn === column) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortDirection = 'desc';
+            }
+            updateDisplay();
+        }
+        
+        function sortFinalsTable(column) {
+            if (sortColumn === column) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortDirection = 'desc';
+            }
+            displayFinalsLeaderboard();
+        }
+        
+        function setupAutocomplete() {
+            const searchInput = document.getElementById('searchInput');
+            const suggestionsDiv = document.getElementById('autocompleteSuggestions');
+            
+            searchInput.addEventListener('input', function() {
+                const value = this.value.toLowerCase();
+                if (value.length < 2) {
+                    suggestionsDiv.classList.remove('active');
+                    return;
+                }
+                
+                // Get unique referee names
+                const allReferees = [...new Set(refereeData.map(r => r.referee))];
+                const matches = allReferees.filter(name => 
+                    name.toLowerCase().includes(value)
+                ).slice(0, 10); // Limit to 10 suggestions
+                
+                if (matches.length > 0) {
+                    suggestionsDiv.innerHTML = matches.map((name, index) => 
+                        `<div class="autocomplete-suggestion" data-index="${index}" onclick="selectSuggestion('${name}')">${name}</div>`
+                    ).join('');
+                    suggestionsDiv.classList.add('active');
+                    selectedSuggestionIndex = -1;
+                } else {
+                    suggestionsDiv.classList.remove('active');
+                }
+            });
+            
+            // Handle keyboard navigation
+            searchInput.addEventListener('keydown', function(e) {
+                const suggestions = document.querySelectorAll('.autocomplete-suggestion');
+                
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, suggestions.length - 1);
+                    updateSelectedSuggestion(suggestions);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+                    updateSelectedSuggestion(suggestions);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedSuggestionIndex >= 0 && suggestions[selectedSuggestionIndex]) {
+                        selectSuggestion(suggestions[selectedSuggestionIndex].textContent);
+                    } else {
+                        searchReferee();
+                    }
+                } else if (e.key === 'Escape') {
+                    suggestionsDiv.classList.remove('active');
+                }
+            });
+            
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                    suggestionsDiv.classList.remove('active');
+                }
+            });
+        }
+        
+        function updateSelectedSuggestion(suggestions) {
+            suggestions.forEach((s, index) => {
+                if (index === selectedSuggestionIndex) {
+                    s.classList.add('selected');
+                } else {
+                    s.classList.remove('selected');
+                }
+            });
+        }
+        
+        function selectSuggestion(name) {
+            document.getElementById('searchInput').value = name;
+            document.getElementById('autocompleteSuggestions').classList.remove('active');
+            searchReferee();
         }
         
         function displayFinalsLeaderboard() {
@@ -776,7 +981,50 @@
             
             // Convert to array and sort
             let finalsLeaderboard = Object.values(refereeAggregated);
-            finalsLeaderboard.sort((a, b) => b.totalFinals - a.totalFinals);
+            
+            // Apply sorting for finals
+            if (sortColumn !== null) {
+                finalsLeaderboard.sort((a, b) => {
+                    let aVal, bVal;
+                    
+                    switch(sortColumn) {
+                        case 'referee':
+                            aVal = a.referee;
+                            bVal = b.referee;
+                            break;
+                        case 'totalFinals':
+                            aVal = a.totalFinals;
+                            bVal = b.totalFinals;
+                            break;
+                        case 'headRefCount':
+                            aVal = a.headRefCount;
+                            bVal = b.headRefCount;
+                            break;
+                        case 'videoRefCount':
+                            aVal = a.videoRefCount;
+                            bVal = b.videoRefCount;
+                            break;
+                        default:
+                            // Check if it's a weapon column
+                            if (sortColumn.startsWith('weapon_')) {
+                                const weapon = sortColumn.replace('weapon_', '').replace(/_/g, ' ');
+                                aVal = a.weaponBreakdown[weapon] || 0;
+                                bVal = b.weaponBreakdown[weapon] || 0;
+                            } else {
+                                aVal = a.totalFinals;
+                                bVal = b.totalFinals;
+                            }
+                    }
+                    
+                    if (typeof aVal === 'string') {
+                        return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                    } else {
+                        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+                    }
+                });
+            } else {
+                finalsLeaderboard.sort((a, b) => b.totalFinals - a.totalFinals);
+            }
             
             // Display stats
             const statsContainer = document.getElementById('statsContainer');
@@ -816,17 +1064,17 @@
                 <table class="leaderboard-table">
                     <thead>
                         <tr>
-                            <th>Rank</th>
-                            <th>Referee Name</th>
-                            <th>Finals</th>
-                            <th>Finals Head Ref</th>
-                            <th>Finals Video Ref</th>
-                            <th>MS</th>
-                            <th>WS</th>
-                            <th>ME</th>
-                            <th>WE</th>
-                            <th>MF</th>
-                            <th>WF</th>
+                            <th onclick="sortFinalsTable('rank')">Rank</th>
+                            <th onclick="sortFinalsTable('referee')">Referee Name</th>
+                            <th onclick="sortFinalsTable('totalFinals')">Finals</th>
+                            <th onclick="sortFinalsTable('headRefCount')">Finals Head Ref</th>
+                            <th onclick="sortFinalsTable('videoRefCount')">Finals Video Ref</th>
+                            <th onclick="sortFinalsTable('weapon_Men\\'s Saber')">MS</th>
+                            <th onclick="sortFinalsTable('weapon_Women\\'s Saber')">WS</th>
+                            <th onclick="sortFinalsTable('weapon_Men\\'s Epee')">ME</th>
+                            <th onclick="sortFinalsTable('weapon_Women\\'s Epee')">WE</th>
+                            <th onclick="sortFinalsTable('weapon_Men\\'s Foil')">MF</th>
+                            <th onclick="sortFinalsTable('weapon_Women\\'s Foil')">WF</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -869,6 +1117,9 @@
                 
                 // Initial display
                 updateDisplay();
+                
+                // Setup autocomplete
+                setupAutocomplete();
             } catch (error) {
                 console.error('Error loading data:', error);
                 document.getElementById('leaderboardContainer').innerHTML = 
