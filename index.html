@@ -1064,11 +1064,16 @@
             
             // Populate season dropdown
             const sortedSeasons = Array.from(seasons).sort((a, b) => b.localeCompare(a));
-            let seasonOptions = '<option value="all">All Seasons</option>';
-            sortedSeasons.forEach(season => {
-                seasonOptions += `<option value="${season}">${season}</option>`;
+            let seasonOptions = '';
+            sortedSeasons.forEach((season, index) => {
+                seasonOptions += `<option value="${season}" ${index === 0 ? 'selected' : ''}>${season}</option>`;
             });
             seasonSelect.innerHTML = seasonOptions;
+            
+            // Set initial filter to most recent season
+            if (sortedSeasons.length > 0) {
+                nacSeasonFilter = sortedSeasons[0];
+            }
             
             // Sort NACs by season and month
             const sortedNACs = Object.values(nacEvents).sort((a, b) => {
@@ -1086,23 +1091,13 @@
             const nacTabsContainer = document.getElementById('nacTabsContainer');
             
             // Filter NACs based on selected season
-            let filteredNACs = sortedNACs;
-            if (nacSeasonFilter !== 'all') {
-                filteredNACs = sortedNACs.filter(nac => nac.season === nacSeasonFilter);
-            }
+            let filteredNACs = sortedNACs.filter(nac => nac.season === nacSeasonFilter);
             
             // Generate tabs HTML
             let tabsHTML = '<button class="sub-tab active" onclick="showNAC(\'all\', \'all\')">All NACs</button>';
             
-            let currentSeason = '';
+            // No season headers needed since we're showing only one season
             filteredNACs.forEach(nac => {
-                if (nacSeasonFilter === 'all' && nac.season !== currentSeason) {
-                    if (currentSeason !== '') {
-                        tabsHTML += '<div style="width: 100%; height: 1px; background-color: #ddd; margin: 10px 0;"></div>';
-                    }
-                    currentSeason = nac.season;
-                    tabsHTML += `<div style="width: 100%; font-weight: bold; padding: 5px; color: #1a472a;">${currentSeason}</div>`;
-                }
                 tabsHTML += `<button class="sub-tab" onclick="showNAC('${nac.season}', '${nac.nacName}')">${nac.displayName}</button>`;
             });
             
@@ -1182,7 +1177,7 @@
             currentNAC = nacName;
             
             // Update sub-tab UI
-            const subTabs = document.querySelectorAll('#nacSubTabs .sub-tab');
+            const subTabs = document.querySelectorAll('#nacTabsContainer .sub-tab');
             subTabs.forEach(tab => {
                 tab.classList.remove('active');
                 if ((season === 'all' && tab.textContent === 'All NACs') || 
