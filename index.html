@@ -987,10 +987,13 @@
                 
                 // Determine the NAC
                 let nacName;
+                let nacKey;
                 if (date.getMonth() === 5 && date.getDate() >= 27) { // June 27+
                     nacName = 'Summer Nationals';
+                    nacKey = `${season}|Summer Nationals`;
                 } else if (date.getMonth() === 6 && date.getDate() <= 15) { // July 1-15
                     nacName = 'Summer Nationals';
+                    nacKey = `${season}|Summer Nationals`;
                 } else {
                     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                     nacName = monthNames[month] + ' NAC';
@@ -999,14 +1002,17 @@
                     if (month === 1) {
                         nacName = 'Jr Olympics';
                     }
+                    
+                    nacKey = `${season}|${nacName}`;
                 }
                 
-                const key = `${season}|${nacName}`;
-                if (!nacEvents[key]) {
-                    nacEvents[key] = {
+                if (!nacEvents[nacKey]) {
+                    nacEvents[nacKey] = {
                         season: season,
                         nacName: nacName,
-                        sortOrder: month === 5 || month === 6 ? 99 : month // Summer Nationals at end
+                        displayName: `${nacName} ${season.slice(-4)}`, // e.g., "Jan NAC 2025"
+                        sortOrder: month === 5 || month === 6 ? 99 : month, // Summer Nationals at end
+                        key: nacKey
                     };
                 }
             });
@@ -1020,7 +1026,7 @@
             });
             
             // Generate tabs HTML
-            let tabsHTML = '<button class="sub-tab active" onclick="showNAC(null, null)">All NACs</button>';
+            let tabsHTML = '<button class="sub-tab active" onclick="showNAC(\'all\', \'all\')">All NACs</button>';
             
             let currentSeason = '';
             sortedNACs.forEach(nac => {
@@ -1031,7 +1037,7 @@
                     currentSeason = nac.season;
                     tabsHTML += `<div style="width: 100%; font-weight: bold; padding: 5px; color: #1a472a;">${currentSeason}</div>`;
                 }
-                tabsHTML += `<button class="sub-tab" onclick="showNAC('${nac.season}', '${nac.nacName}')">${nac.nacName}</button>`;
+                tabsHTML += `<button class="sub-tab" onclick="showNAC('${nac.season}', '${nac.nacName}')">${nac.displayName}</button>`;
             });
             
             nacTabsContainer.innerHTML = tabsHTML;
@@ -1045,8 +1051,8 @@
             const subTabs = document.querySelectorAll('#nacSubTabs .sub-tab');
             subTabs.forEach(tab => {
                 tab.classList.remove('active');
-                if ((nacName === null && tab.textContent === 'All NACs') || 
-                    tab.textContent === nacName) {
+                if ((season === 'all' && tab.textContent === 'All NACs') || 
+                    (season !== 'all' && tab.textContent.includes(nacName) && tab.textContent.includes(season.slice(-4)))) {
                     tab.classList.add('active');
                 }
             });
@@ -1058,7 +1064,7 @@
             let filteredData = refereeData;
             
             // Filter by NAC if selected
-            if (currentNAC !== null) {
+            if (currentNAC !== 'all' && currentNACSeason !== 'all') {
                 filteredData = filteredData.filter(record => {
                     const date = new Date(record.date);
                     const month = date.getMonth();
@@ -1181,7 +1187,13 @@
             
             // Display statistics
             const statsContainer = document.getElementById('statsContainer');
-            const nacLabel = currentNAC ? `${currentNAC} ${currentNACSeason}` : 'All NACs';
+            let nacLabel;
+            if (currentNAC === 'all') {
+                nacLabel = 'All NACs';
+            } else {
+                const year = currentNACSeason.slice(-4);
+                nacLabel = `${currentNAC} ${year}`;
+            }
             
             const totalReferees = leaderboardData.length;
             const totalMatches = leaderboardData.reduce((sum, ref) => sum + ref.totalMatches, 0);
