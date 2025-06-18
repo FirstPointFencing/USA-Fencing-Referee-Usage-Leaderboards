@@ -363,7 +363,6 @@ let currentNAC = null;
             <div class="nav-bar">
                 <button class="nav-button active" onclick="showMainView('allTime')">All Time</button>
                 <button class="nav-button" onclick="showMainView('finals')">Finals</button>
-                <button class="nav-button" onclick="showMainView('nacStats')">NAC Bout Stats By Year</button>
                 <div class="season-dropdown">
                     <label for="mainSeasonSelect">Season:</label>
                     <select id="mainSeasonSelect" onchange="selectSeason(this.value)">
@@ -384,18 +383,6 @@ let currentNAC = null;
             <button class="sub-tab" onclick="showWeapon('Women\'s Epee')">Women's Epee</button>
             <button class="sub-tab" onclick="showWeapon('Men\'s Foil')">Men's Foil</button>
             <button class="sub-tab" onclick="showWeapon('Women\'s Foil')">Women's Foil</button>
-        </div>
-        
-        <div id="nacSubTabs" class="sub-tabs" style="display: none;">
-            <div class="season-selector">
-                <label for="nacSeasonSelect">Select Season:</label>
-                <select id="nacSeasonSelect" onchange="filterNACsBySeason(this.value)">
-                    <option value="all">All Seasons</option>
-                </select>
-            </div>
-            <div id="nacTabsContainer">
-                <!-- NAC tabs will be dynamically generated here -->
-            </div>
         </div>
         
         <div class="content">
@@ -753,8 +740,7 @@ let currentNAC = null;
             navButtons.forEach(btn => {
                 btn.classList.remove('active');
                 if ((view === 'allTime' && btn.textContent === 'All Time') ||
-                    (view === 'finals' && btn.textContent === 'Finals') ||
-                    (view === 'nacStats' && btn.textContent.includes('NAC Bout Stats'))) {
+                    (view === 'finals' && btn.textContent === 'Finals')) {
                     btn.classList.add('active');
                 }
             });
@@ -764,14 +750,8 @@ let currentNAC = null;
             // Show/hide appropriate sub-tabs
             if (view === 'finals') {
                 document.getElementById('subTabs').style.display = 'none';
-                document.getElementById('nacSubTabs').style.display = 'none';
-            } else if (view === 'nacStats') {
-                document.getElementById('subTabs').style.display = 'none';
-                document.getElementById('nacSubTabs').style.display = 'flex';
-                generateNACTabs();
             } else if (view === 'allTime') {
                 document.getElementById('subTabs').style.display = 'flex';
-                document.getElementById('nacSubTabs').style.display = 'none';
             }
             
             updateDisplay();
@@ -786,7 +766,6 @@ let currentNAC = null;
             
             // Show weapon tabs for season view
             document.getElementById('subTabs').style.display = 'flex';
-            document.getElementById('nacSubTabs').style.display = 'none';
             
             updateDisplay();
         }
@@ -830,12 +809,6 @@ let currentNAC = null;
             // Handle Finals tab separately
             if (currentTab === 'finals') {
                 displayFinalsLeaderboard();
-                return;
-            }
-            
-            // Handle NAC Stats tab
-            if (currentTab === 'nacStats') {
-                displayNACStats();
                 return;
             }
             
@@ -1160,321 +1133,7 @@ let currentNAC = null;
             document.getElementById('searchInput').value = name;
             document.getElementById('autocompleteSuggestions').classList.remove('active');
             searchReferee();
-        }
-        
-        function generateNACTabs() {
-            const nacTabsContainer = document.getElementById('nacTabsContainer');
-            const seasonSelect = document.getElementById('nacSeasonSelect');
-            
-            // Get all unique tournaments
-            const nacEvents = {};
-            const seasons = new Set();
-            
-            refereeData.forEach(record => {
-                const tournamentInfo = getTournamentInfo(record.date);
-                seasons.add(tournamentInfo.season);
-                
-                const nacKey = `${tournamentInfo.season}|${tournamentInfo.name}|${tournamentInfo.year}`;
-                
-                if (!nacEvents[nacKey]) {
-                    nacEvents[nacKey] = {
-                        season: tournamentInfo.season,
-                        nacName: tournamentInfo.name,
-                        displayName: `${tournamentInfo.name} ${tournamentInfo.year}`,
-                        year: tournamentInfo.year,
-                        key: nacKey,
-                        // Custom sort order based on tournament type and month
-                        sortOrder: getSortOrder(tournamentInfo.name, record.date)
-                    };
-                }
-            });
-            
-            // Populate season dropdown
-            const sortedSeasons = Array.from(seasons).sort((a, b) => b.localeCompare(a));
-            let seasonOptions = '';
-            sortedSeasons.forEach((season, index) => {
-                seasonOptions += `<option value="${season}" ${index === 0 ? 'selected' : ''}>${season}</option>`;
-            });
-            seasonSelect.innerHTML = seasonOptions;
-            
-            // Set initial filter to most recent season
-            if (sortedSeasons.length > 0) {
-                nacSeasonFilter = sortedSeasons[0];
-            }
-            
-            // Sort NACs by season and custom order
-            const sortedNACs = Object.values(nacEvents).sort((a, b) => {
-                if (a.season !== b.season) {
-                    return b.season.localeCompare(a.season);
-                }
-                return a.sortOrder - b.sortOrder;
-            });
-            
-            // Generate tabs HTML based on filter
-            displayFilteredNACTabs(sortedNACs);
-        }
-        
-        function getSortOrder(nacName, dateStr) {
-            const date = new Date(dateStr);
-            const month = date.getMonth();
-            
-            // Define sort order for tournament types
-            const typeOrder = {
-                'Oct NAC': 1,
-                'Nov NAC': 2,
-                'Dec NAC': 3,
-                'Dec SJCC': 3.5,
-                'Dec SJCC + NAC': 3.5,
-                'Jan NAC': 4,
-                'Jr Olympics': 5,
-                'Junior Olympics': 5,
-                'March NAC': 6,
-                'March SJCC': 6.5,
-                'April NAC': 7,
-                'May SJCC': 8,
-                'June SJCC': 9,
-                'Summer Nationals': 10
-            };
-            
-            return typeOrder[nacName] || month;
-        }
-        
-        function displayFilteredNACTabs(sortedNACs) {
-            const nacTabsContainer = document.getElementById('nacTabsContainer');
-            
-            // Filter NACs based on selected season
-            let filteredNACs = sortedNACs.filter(nac => nac.season === nacSeasonFilter);
-            
-            // Generate tabs HTML
-            let tabsHTML = '<button class="sub-tab active" onclick="showNAC(\'all\', \'all\', \'all\')">All NACs</button>';
-            
-            // No season headers needed since we're showing only one season
-            filteredNACs.forEach(nac => {
-                tabsHTML += `<button class="sub-tab" onclick="showNAC('${nac.season}', '${nac.nacName}', '${nac.year}')">${nac.displayName}</button>`;
-            });
-            
-            nacTabsContainer.innerHTML = tabsHTML;
-        }
-        
-        function filterNACsBySeason(season) {
-            nacSeasonFilter = season;
-            
-            // Regenerate the tabs with the new filter
-            generateNACTabs();
-            
-            // Reset to All NACs view
-            showNAC('all', 'all', 'all');
-        }
-        
-        function showNAC(season, nacName, year) {
-            currentNACSeason = season;
-            currentNAC = nacName;
-            currentNACYear = year;
-            
-            // Update sub-tab UI
-            const subTabs = document.querySelectorAll('#nacTabsContainer .sub-tab');
-            subTabs.forEach(tab => {
-                tab.classList.remove('active');
-                if ((season === 'all' && tab.textContent === 'All NACs') || 
-                    (season !== 'all' && tab.textContent.includes(nacName) && tab.textContent.includes(year))) {
-                    tab.classList.add('active');
-                }
-            });
-            
-            displayNACStats();
-        }
-        
-        function displayNACStats() {
-            let filteredData = refereeData;
-            
-            // Filter by NAC if selected
-            if (currentNAC !== 'all' && currentNACSeason !== 'all') {
-                filteredData = filteredData.filter(record => {
-                    const tournamentInfo = getTournamentInfo(record.date);
-                    
-                    // Check if it matches the selected tournament
-                    return tournamentInfo.season === currentNACSeason && 
-                           tournamentInfo.name === currentNAC &&
-                           tournamentInfo.year === currentNACYear;
-                });
-            }
-            
-            // Apply search filter
-            if (searchTerm) {
-                filteredData = filteredData.filter(d => 
-                    d.referee.toLowerCase().includes(searchTerm)
-                );
-            }
-            
-            // Aggregate by referee
-            const refereeAggregated = {};
-            
-            for (const record of filteredData) {
-                const referee = record.referee;
-                
-                if (!refereeAggregated[referee]) {
-                    refereeAggregated[referee] = {
-                        referee: referee,
-                        totalMatches: 0,
-                        headRefMatches: 0,
-                        videoRefMatches: 0,
-                        pools: 0,
-                        finals: 0,
-                        weapons: new Set(),
-                        events: new Set()
-                    };
-                }
-                
-                refereeAggregated[referee].totalMatches += record.totalMatches;
-                refereeAggregated[referee].headRefMatches += record.headRefMatches;
-                refereeAggregated[referee].videoRefMatches += record.videoRefMatches;
-                refereeAggregated[referee].pools += record.pools;
-                refereeAggregated[referee].finals += record.finals;
-                refereeAggregated[referee].weapons.add(record.weapon);
-                refereeAggregated[referee].events.add(record.event);
-            }
-            
-            // Convert to array and sort
-            let leaderboardData = Object.values(refereeAggregated);
-            
-            // Apply sorting
-            if (sortColumn !== null) {
-                leaderboardData.sort((a, b) => {
-                    let aVal, bVal;
-                    
-                    switch(sortColumn) {
-                        case 'referee':
-                            aVal = a.referee;
-                            bVal = b.referee;
-                            break;
-                        case 'totalMatches':
-                            aVal = a.totalMatches;
-                            bVal = b.totalMatches;
-                            break;
-                        case 'finals':
-                            aVal = a.finals;
-                            bVal = b.finals;
-                            break;
-                        case 'pools':
-                            aVal = a.pools;
-                            bVal = b.pools;
-                            break;
-                        case 'headRefMatches':
-                            aVal = a.headRefMatches;
-                            bVal = b.headRefMatches;
-                            break;
-                        case 'videoRefMatches':
-                            aVal = a.videoRefMatches;
-                            bVal = b.videoRefMatches;
-                            break;
-                        case 'headRefPercentage':
-                            aVal = a.totalMatches > 0 ? (a.headRefMatches / a.totalMatches) : 0;
-                            bVal = b.totalMatches > 0 ? (b.headRefMatches / b.totalMatches) : 0;
-                            break;
-                        case 'events':
-                            aVal = a.events.size;
-                            bVal = b.events.size;
-                            break;
-                        default:
-                            aVal = a.totalMatches;
-                            bVal = b.totalMatches;
-                    }
-                    
-                    if (typeof aVal === 'string') {
-                        return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-                    } else {
-                        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
-                    }
-                });
-            } else {
-                leaderboardData.sort((a, b) => b.totalMatches - a.totalMatches);
-            }
-            
-            // Display statistics
-            const statsContainer = document.getElementById('statsContainer');
-            let nacLabel;
-            if (currentNAC === 'all') {
-                nacLabel = 'All NACs';
-            } else {
-                const year = currentNACSeason.slice(-4);
-                nacLabel = `${currentNAC} ${year}`;
-            }
-            
-            const totalReferees = leaderboardData.length;
-            const totalMatches = leaderboardData.reduce((sum, ref) => sum + ref.totalMatches, 0);
-            const totalFinals = leaderboardData.reduce((sum, ref) => sum + ref.finals, 0);
-            const totalPools = leaderboardData.reduce((sum, ref) => sum + ref.pools, 0);
-            
-            statsContainer.innerHTML = `
-                <div class="stat-card">
-                    <h3>${totalReferees}</h3>
-                    <p>Referees at ${nacLabel}</p>
-                </div>
-                <div class="stat-card">
-                    <h3>${totalMatches.toLocaleString()}</h3>
-                    <p>Total Matches</p>
-                </div>
-                <div class="stat-card">
-                    <h3>${totalFinals.toLocaleString()}</h3>
-                    <p>Finals Officiated</p>
-                </div>
-                <div class="stat-card">
-                    <h3>${totalPools.toLocaleString()}</h3>
-                    <p>Pools Officiated</p>
-                </div>
-            `;
-            
-            // Display leaderboard
-            const container = document.getElementById('leaderboardContainer');
-            
-            if (leaderboardData.length === 0) {
-                container.innerHTML = '<p>No data found for the selected NAC.</p>';
-                return;
-            }
-            
-            let tableHTML = `
-                <h2 style="margin-bottom: 20px; color: #1a472a;">${nacLabel}</h2>
-                <table class="leaderboard-table">
-                    <thead>
-                        <tr>
-                            <th onclick="sortTable('rank')">Rank</th>
-                            <th onclick="sortTable('referee')">Referee Name</th>
-                            <th onclick="sortTable('totalMatches')">Total Matches</th>
-                            <th onclick="sortTable('finals')">Finals</th>
-                            <th onclick="sortTable('pools')">Pools</th>
-                            <th onclick="sortTable('headRefMatches')">Head Ref</th>
-                            <th onclick="sortTable('videoRefMatches')">Video Ref</th>
-                            <th onclick="sortTable('headRefPercentage')">Head Ref %</th>
-                            <th onclick="sortTable('events')">Events</th>
-                            <th>Weapons</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            leaderboardData.forEach((referee, index) => {
-                const headRefPercentage = referee.totalMatches > 0 
-                    ? ((referee.headRefMatches / referee.totalMatches) * 100).toFixed(1)
-                    : '0.0';
-                
-                // Simplify weapons display
-                const weapons = Array.from(referee.weapons);
-                const hasEpee = weapons.some(w => w.includes('Epee'));
-                const hasFoil = weapons.some(w => w.includes('Foil'));
-                const hasSaber = weapons.some(w => w.includes('Saber'));
-                
-                const simplifiedWeapons = [];
-                if (hasSaber) simplifiedWeapons.push('Saber');
-                if (hasEpee) simplifiedWeapons.push('Epee');
-                if (hasFoil) simplifiedWeapons.push('Foil');
-                
-                const weaponsDisplay = simplifiedWeapons.join(', ');
-                
-                tableHTML += `
-                    <tr>
-                        <td class="rank">${index + 1}</td>
-                        <td>${referee.referee}</td>
-                        <td>${referee.totalMatches}</td>
+        }}</td>
                         <td>${referee.finals}</td>
                         <td>${referee.pools}</td>
                         <td>${referee.headRefMatches}</td>
