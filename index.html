@@ -360,7 +360,6 @@
             <div class="nav-bar">
                 <button class="nav-button active" onclick="showMainView('allTime')">All Time</button>
                 <button class="nav-button" onclick="showMainView('finals')">Finals</button>
-                <button class="nav-button" onclick="showMainView('nacUsage')">NAC Usage</button>
                 <div class="season-dropdown">
                     <label for="mainSeasonSelect">Season:</label>
                     <select id="mainSeasonSelect" onchange="selectSeason(this.value)">
@@ -381,18 +380,6 @@
             <button class="sub-tab" onclick="showWeapon('Women\'s Epee')">Women's Epee</button>
             <button class="sub-tab" onclick="showWeapon('Men\'s Foil')">Men's Foil</button>
             <button class="sub-tab" onclick="showWeapon('Women\'s Foil')">Women's Foil</button>
-        </div>
-        
-        <div id="nacUsageTabs" class="sub-tabs" style="display: none;">
-            <div class="season-selector">
-                <label for="nacSeasonSelect">Select Season:</label>
-                <select id="nacSeasonSelect" onchange="filterNACsBySeason(this.value)">
-                    <!-- Seasons will be populated here -->
-                </select>
-            </div>
-            <div id="nacButtons" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
-                <!-- NAC buttons will be dynamically generated here -->
-            </div>
         </div>
         
         <div class="content">
@@ -429,8 +416,6 @@
         let sortColumn = null;
         let sortDirection = 'desc';
         let selectedSuggestionIndex = -1;
-        let nacSeasonFilter = null;
-        let currentNAC = null;
         // Define tournament date ranges and names
         const tournaments = [
             // 2024-2025 Season
@@ -851,12 +836,6 @@
                 return;
             }
             
-            // Handle NAC Usage tab
-            if (currentTab === 'nacUsage') {
-                displayNACUsage();
-                return;
-            }
-            
             // Filter data based on current selections
             let filteredData = refereeData;
             
@@ -1082,6 +1061,19 @@
             `;
             
             container.innerHTML = tableHTML;
+            
+            // Apply visual indicator to sorted column
+            if (sortColumn) {
+                const headers = document.querySelectorAll('.leaderboard-table th');
+                headers.forEach(th => {
+                    th.classList.remove('sort-asc', 'sort-desc');
+                    if (th.textContent.toLowerCase().includes(sortColumn.toLowerCase()) ||
+                        (sortColumn === 'rank' && th.textContent === 'Rank') ||
+                        (sortColumn === 'headRefPercentage' && th.textContent.includes('Head Ref %'))) {
+                        th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+                    }
+                });
+            }
         }
         
         function sortTable(column) {
@@ -1178,402 +1170,6 @@
             document.getElementById('searchInput').value = name;
             document.getElementById('autocompleteSuggestions').classList.remove('active');
             searchReferee();
-        }
-        
-        // NAC Usage Functions
-        function initializeNACUsage() {
-            const seasonSelect = document.getElementById('nacSeasonSelect');
-            const seasons = new Set();
-            
-            // Get all unique seasons
-            refereeData.forEach(record => {
-                const date = new Date(record.date);
-                const month = date.getMonth();
-                const year = date.getFullYear();
-                
-                let season;
-                if (month >= 7) { // Aug-Dec
-                    season = `${year}-${year + 1}`;
-                } else { // Jan-July
-                    season = `${year - 1}-${year}`;
-                }
-                seasons.add(season);
-            });
-            
-            // Populate season dropdown
-            const sortedSeasons = Array.from(seasons).sort((a, b) => b.localeCompare(a));
-            let seasonOptions = '';
-            sortedSeasons.forEach((season, index) => {
-                seasonOptions += `<option value="${season}" ${index === 0 ? 'selected' : ''}>${season}</option>`;
-            });
-            seasonSelect.innerHTML = seasonOptions;
-            
-            // Set initial filter to most recent season
-            if (sortedSeasons.length > 0) {
-                nacSeasonFilter = sortedSeasons[0];
-                filterNACsBySeason(sortedSeasons[0]);
-            }
-        }
-        
-        function filterNACsBySeason(season) {
-            nacSeasonFilter = season;
-            const nacButtons = document.getElementById('nacButtons');
-            
-            // Get all events for this season
-            const seasonEvents = detectNACEvents(season);
-            
-            // Generate buttons
-            let buttonsHTML = '';
-            seasonEvents.forEach(event => {
-                buttonsHTML += `<button class="sub-tab" onclick="showNACEvent('${event.name}', '${event.dateRange}')">${event.name}</button>`;
-            });
-            
-            nacButtons.innerHTML = buttonsHTML;
-            
-            // Show all events by default
-            currentNAC = null;
-            displayNACUsage();
-        }
-        
-        function detectNACEvents(season) {
-            // Filter data for this season
-            const seasonData = refereeData.filter(record => {
-                const date = new Date(record.date);
-                const month = date.getMonth();
-                const year = date.getFullYear();
-                
-                let recordSeason;
-                if (month >= 7) { // Aug-Dec
-                    recordSeason = `${year}-${year + 1}`;
-                } else { // Jan-July
-                    recordSeason = `${year - 1}-${year}`;
-                }
-                
-                return recordSeason === season;
-            });
-            
-            // Group dates to find event clusters
-            const dateGroups = {};
-            seasonData.forEach(record => {
-                const date = new Date(record.date);
-                const dateKey = date.toISOString().split('T')[0];
-                
-                if (!dateGroups[dateKey]) {
-                    dateGroups[dateKey] = [];
-                }
-                dateGroups[dateKey].push(record);
-            });
-            
-            // Sort dates
-            const sortedDates = Object.keys(dateGroups).sort();
-            
-            // Cluster dates within 4 days of each other
-            const events = [];
-            let currentCluster = null;
-            
-            sortedDates.forEach(dateStr => {
-                const date = new Date(dateStr);
-                
-                if (!currentCluster || daysBetween(new Date(currentCluster.endDate), date) > 4) {
-                    // Start new cluster
-                    if (currentCluster) {
-                        events.push(finalizeCluster(currentCluster));
-                    }
-                    
-                    currentCluster = {
-                        startDate: dateStr,
-                        endDate: dateStr,
-                        dates: [dateStr],
-                        month: date.getMonth(),
-                        year: date.getFullYear()
-                    };
-                } else {
-                    // Add to current cluster
-                    currentCluster.endDate = dateStr;
-                    currentCluster.dates.push(dateStr);
-                }
-            });
-            
-            // Don't forget the last cluster
-            if (currentCluster) {
-                events.push(finalizeCluster(currentCluster));
-            }
-            
-            return events.sort((a, b) => {
-                // Sort by month order in the season
-                const monthOrder = [9, 10, 11, 0, 1, 2, 3, 4, 5, 6]; // Oct through July
-                return monthOrder.indexOf(a.monthIndex) - monthOrder.indexOf(b.monthIndex);
-            });
-        }
-        
-        function daysBetween(date1, date2) {
-            const oneDay = 24 * 60 * 60 * 1000;
-            return Math.abs((date2 - date1) / oneDay);
-        }
-        
-        function finalizeCluster(cluster) {
-            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            let eventName = monthNames[cluster.month] + ' NAC';
-            
-            // Special cases
-            if (cluster.month === 1) { // February
-                eventName = 'Jr Olympics';
-            } else if (cluster.month === 5 && new Date(cluster.startDate).getDate() >= 27) {
-                eventName = 'Summer Nationals';
-            } else if (cluster.month === 6 && new Date(cluster.endDate).getDate() <= 15) {
-                eventName = 'Summer Nationals';
-            }
-            
-            // Add year to name
-            eventName += ` ${cluster.year}`;
-            
-            return {
-                name: eventName,
-                startDate: cluster.startDate,
-                endDate: cluster.endDate,
-                dates: cluster.dates,
-                monthIndex: cluster.month,
-                dateRange: `${cluster.startDate}|${cluster.endDate}`
-            };
-        }
-        
-        function showNACEvent(eventName, dateRange) {
-            currentNAC = { name: eventName, dateRange: dateRange };
-            
-            // Update button states
-            const buttons = document.querySelectorAll('#nacButtons .sub-tab');
-            buttons.forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.textContent === eventName) {
-                    btn.classList.add('active');
-                }
-            });
-            
-            displayNACUsage();
-        }
-        
-        function displayNACUsage() {
-            let filteredData = refereeData;
-            
-            // Filter by season
-            filteredData = filteredData.filter(record => {
-                const date = new Date(record.date);
-                const month = date.getMonth();
-                const year = date.getFullYear();
-                
-                let recordSeason;
-                if (month >= 7) { // Aug-Dec
-                    recordSeason = `${year}-${year + 1}`;
-                } else { // Jan-July
-                    recordSeason = `${year - 1}-${year}`;
-                }
-                
-                return recordSeason === nacSeasonFilter;
-            });
-            
-            // Filter by specific NAC if selected
-            if (currentNAC) {
-                const [startDate, endDate] = currentNAC.dateRange.split('|');
-                const start = new Date(startDate);
-                const end = new Date(endDate);
-                
-                // Expand date range by 4 days on each side to catch mislabeled dates
-                start.setDate(start.getDate() - 4);
-                end.setDate(end.getDate() + 4);
-                
-                filteredData = filteredData.filter(record => {
-                    const recordDate = new Date(record.date);
-                    return recordDate >= start && recordDate <= end;
-                });
-            }
-            
-            // Apply search filter
-            if (searchTerm) {
-                filteredData = filteredData.filter(d => 
-                    d.referee.toLowerCase().includes(searchTerm)
-                );
-            }
-            
-            // Aggregate by referee
-            const refereeAggregated = {};
-            
-            for (const record of filteredData) {
-                const referee = record.referee;
-                
-                if (!refereeAggregated[referee]) {
-                    refereeAggregated[referee] = {
-                        referee: referee,
-                        totalMatches: 0,
-                        headRefMatches: 0,
-                        videoRefMatches: 0,
-                        pools: 0,
-                        finals: 0,
-                        weapons: new Set(),
-                        events: new Set()
-                    };
-                }
-                
-                refereeAggregated[referee].totalMatches += record.totalMatches;
-                refereeAggregated[referee].headRefMatches += record.headRefMatches;
-                refereeAggregated[referee].videoRefMatches += record.videoRefMatches;
-                refereeAggregated[referee].pools += record.pools;
-                refereeAggregated[referee].finals += record.finals;
-                refereeAggregated[referee].weapons.add(record.weapon);
-                refereeAggregated[referee].events.add(record.event);
-            }
-            
-            // Convert to array and sort
-            let leaderboardData = Object.values(refereeAggregated);
-            
-            // Apply sorting
-            if (sortColumn !== null) {
-                leaderboardData.sort((a, b) => {
-                    let aVal, bVal;
-                    
-                    switch(sortColumn) {
-                        case 'referee':
-                            aVal = a.referee;
-                            bVal = b.referee;
-                            break;
-                        case 'totalMatches':
-                            aVal = a.totalMatches;
-                            bVal = b.totalMatches;
-                            break;
-                        case 'finals':
-                            aVal = a.finals;
-                            bVal = b.finals;
-                            break;
-                        case 'pools':
-                            aVal = a.pools;
-                            bVal = b.pools;
-                            break;
-                        case 'headRefMatches':
-                            aVal = a.headRefMatches;
-                            bVal = b.headRefMatches;
-                            break;
-                        case 'videoRefMatches':
-                            aVal = a.videoRefMatches;
-                            bVal = b.videoRefMatches;
-                            break;
-                        case 'headRefPercentage':
-                            aVal = a.totalMatches > 0 ? (a.headRefMatches / a.totalMatches) : 0;
-                            bVal = b.totalMatches > 0 ? (b.headRefMatches / b.totalMatches) : 0;
-                            break;
-                        case 'events':
-                            aVal = a.events.size;
-                            bVal = b.events.size;
-                            break;
-                        default:
-                            aVal = a.totalMatches;
-                            bVal = b.totalMatches;
-                    }
-                    
-                    if (typeof aVal === 'string') {
-                        return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-                    } else {
-                        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
-                    }
-                });
-            } else {
-                leaderboardData.sort((a, b) => b.totalMatches - a.totalMatches);
-            }
-            
-            // Display statistics
-            const statsContainer = document.getElementById('statsContainer');
-            const displayLabel = currentNAC ? currentNAC.name : `All ${nacSeasonFilter} Events`;
-            
-            const totalReferees = leaderboardData.length;
-            const totalMatches = leaderboardData.reduce((sum, ref) => sum + ref.totalMatches, 0);
-            const totalFinals = leaderboardData.reduce((sum, ref) => sum + ref.finals, 0);
-            const totalPools = leaderboardData.reduce((sum, ref) => sum + ref.pools, 0);
-            
-            statsContainer.innerHTML = `
-                <div class="stat-card">
-                    <h3>${totalReferees}</h3>
-                    <p>Referees at ${displayLabel}</p>
-                </div>
-                <div class="stat-card">
-                    <h3>${totalMatches.toLocaleString()}</h3>
-                    <p>Total Matches</p>
-                </div>
-                <div class="stat-card">
-                    <h3>${totalFinals.toLocaleString()}</h3>
-                    <p>Finals Officiated</p>
-                </div>
-                <div class="stat-card">
-                    <h3>${totalPools.toLocaleString()}</h3>
-                    <p>Pools Officiated</p>
-                </div>
-            `;
-            
-            // Display leaderboard
-            const container = document.getElementById('leaderboardContainer');
-            
-            if (leaderboardData.length === 0) {
-                container.innerHTML = '<p>No data found for the selected event.</p>';
-                return;
-            }
-            
-            let tableHTML = `
-                <h2 style="margin-bottom: 20px; color: #1a472a;">${displayLabel}</h2>
-                <table class="leaderboard-table">
-                    <thead>
-                        <tr>
-                            <th onclick="sortTable('rank')">Rank</th>
-                            <th onclick="sortTable('referee')">Referee Name</th>
-                            <th onclick="sortTable('totalMatches')">Total Matches</th>
-                            <th onclick="sortTable('finals')">Finals</th>
-                            <th onclick="sortTable('pools')">Pools</th>
-                            <th onclick="sortTable('headRefMatches')">Head Ref</th>
-                            <th onclick="sortTable('videoRefMatches')">Video Ref</th>
-                            <th onclick="sortTable('headRefPercentage')">Head Ref %</th>
-                            <th onclick="sortTable('events')">Events</th>
-                            <th>Weapons</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            leaderboardData.forEach((referee, index) => {
-                const headRefPercentage = referee.totalMatches > 0 
-                    ? ((referee.headRefMatches / referee.totalMatches) * 100).toFixed(1)
-                    : '0.0';
-                
-                // Simplify weapons display
-                const weapons = Array.from(referee.weapons);
-                const hasEpee = weapons.some(w => w.includes('Epee'));
-                const hasFoil = weapons.some(w => w.includes('Foil'));
-                const hasSaber = weapons.some(w => w.includes('Saber'));
-                
-                const simplifiedWeapons = [];
-                if (hasSaber) simplifiedWeapons.push('Saber');
-                if (hasEpee) simplifiedWeapons.push('Epee');
-                if (hasFoil) simplifiedWeapons.push('Foil');
-                
-                const weaponsDisplay = simplifiedWeapons.join(', ');
-                
-                tableHTML += `
-                    <tr>
-                        <td class="rank">${index + 1}</td>
-                        <td>${referee.referee}</td>
-                        <td>${referee.totalMatches}</td>
-                        <td>${referee.finals}</td>
-                        <td>${referee.pools}</td>
-                        <td>${referee.headRefMatches}</td>
-                        <td>${referee.videoRefMatches}</td>
-                        <td class="percentage">${headRefPercentage}%</td>
-                        <td>${referee.events.size}</td>
-                        <td>${weaponsDisplay}</td>
-                    </tr>
-                `;
-            });
-            
-            tableHTML += `
-                    </tbody>
-                </table>
-            `;
-            
-            container.innerHTML = tableHTML;
         }}</td>
                         <td>${referee.finals}</td>
                         <td>${referee.pools}</td>
@@ -1769,98 +1365,6 @@
             
             container.innerHTML = tableHTML;
         }
-
-        // Add these functions to your index.html file, inside the <script> tags, 
-// after the existing JavaScript code but before the window.addEventListener
-
-function showMainView(view) {
-    // Update nav button states
-    const navButtons = document.querySelectorAll('.nav-button');
-    navButtons.forEach(btn => {
-        btn.classList.remove('active');
-        if ((view === 'allTime' && btn.textContent === 'All Time') ||
-            (view === 'finals' && btn.textContent === 'Finals') ||
-            (view === 'nacUsage' && btn.textContent === 'NAC Usage')) {
-            btn.classList.add('active');
-        }
-    });
-    
-    currentTab = view;
-    
-    // Show/hide appropriate sub-tabs
-    if (view === 'finals') {
-        document.getElementById('subTabs').style.display = 'none';
-        document.getElementById('nacUsageTabs').style.display = 'none';
-    } else if (view === 'nacUsage') {
-        document.getElementById('subTabs').style.display = 'none';
-        document.getElementById('nacUsageTabs').style.display = 'block';
-        initializeNACUsage();
-    } else if (view === 'allTime') {
-        document.getElementById('subTabs').style.display = 'flex';
-        document.getElementById('nacUsageTabs').style.display = 'none';
-    }
-    
-    updateDisplay();
-}
-
-function showWeapon(weapon) {
-    currentWeapon = weapon;
-    
-    // Update sub-tab UI
-    const subTabs = document.querySelectorAll('.sub-tab');
-    subTabs.forEach(tab => {
-        tab.classList.remove('active');
-        if ((weapon === 'all' && tab.textContent === 'All Weapons') || 
-            (weapon === 'All Saber' && tab.textContent === 'All Saber') ||
-            (weapon === 'All Foil' && tab.textContent === 'All Foil') ||
-            (weapon === 'All Epee' && tab.textContent === 'All Epee') ||
-            tab.textContent === weapon) {
-            tab.classList.add('active');
-        }
-    });
-    
-    updateDisplay();
-}
-
-function selectSeason(season) {
-    currentTab = season;
-    
-    // Update nav button states
-    const navButtons = document.querySelectorAll('.nav-button');
-    navButtons.forEach(btn => btn.classList.remove('active'));
-    
-    // Show weapon tabs for season view
-    document.getElementById('subTabs').style.display = 'flex';
-    document.getElementById('nacUsageTabs').style.display = 'none';
-    
-    updateDisplay();
-}
-
-function populateMainSeasonDropdown() {
-    const seasonSelect = document.getElementById('mainSeasonSelect');
-    const seasons = new Set();
-    
-    refereeData.forEach(record => {
-        const date = new Date(record.date);
-        const month = date.getMonth();
-        const year = date.getFullYear();
-        
-        let season;
-        if (month >= 7) { // Aug-Dec
-            season = `${year}-${year + 1}`;
-        } else { // Jan-July
-            season = `${year - 1}-${year}`;
-        }
-        seasons.add(season);
-    });
-    
-    const sortedSeasons = Array.from(seasons).sort((a, b) => b.localeCompare(a));
-    let seasonOptions = '';
-    sortedSeasons.forEach(season => {
-        seasonOptions += `<option value="${season}">${season}</option>`;
-    });
-    seasonSelect.innerHTML = seasonOptions;
-}
         
         // Initialize on load
         window.addEventListener('DOMContentLoaded', async () => {
