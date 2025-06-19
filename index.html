@@ -1,7 +1,4 @@
-let currentNAC = null;
-        let currentNACSeason = null;
-        let currentNACYear = null;
-        let nacSeasonFilter = null;<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -789,6 +786,25 @@ let currentNAC = null;
             // Show weapon tabs for season view
             document.getElementById('subTabs').style.display = 'flex';
             document.getElementById('nacUsageTabs').style.display = 'none';
+            
+            updateDisplay();
+        }
+        
+        function showWeapon(weapon) {
+            currentWeapon = weapon;
+            
+            // Update sub-tab UI
+            const subTabs = document.querySelectorAll('.sub-tab');
+            subTabs.forEach(tab => {
+                tab.classList.remove('active');
+                if ((weapon === 'all' && tab.textContent === 'All Weapons') || 
+                    (weapon === 'All Saber' && tab.textContent === 'All Saber') ||
+                    (weapon === 'All Foil' && tab.textContent === 'All Foil') ||
+                    (weapon === 'All Epee' && tab.textContent === 'All Epee') ||
+                    tab.textContent === weapon) {
+                    tab.classList.add('active');
+                }
+            });
             
             updateDisplay();
         }
