@@ -2208,14 +2208,19 @@
                         attendanceByRef[name].tournaments.add(tournament);
                         attendanceByRef[name].seasons.add(season);
                         
-                        // Track first and last tournament
-                        if (!attendanceByRef[name].firstTournament || 
-                            compareSeasons(season, getSeasonFromTournament(attendanceByRef[name].firstTournament)) < 0) {
-                            attendanceByRef[name].firstTournament = tournament;
-                        }
-                        if (!attendanceByRef[name].lastTournament || 
-                            compareSeasons(season, getSeasonFromTournament(attendanceByRef[name].lastTournament)) > 0) {
-                            attendanceByRef[name].lastTournament = tournament;
+                        // Track first and last tournament with proper date comparison
+                        if (tournament) {
+                            // Parse tournament to get comparable date
+                            const tournamentDate = parseTournamentToDate(tournament);
+                            
+                            if (!attendanceByRef[name].firstTournament || 
+                                parseTournamentToDate(attendanceByRef[name].firstTournament) > tournamentDate) {
+                                attendanceByRef[name].firstTournament = tournament;
+                            }
+                            if (!attendanceByRef[name].lastTournament || 
+                                parseTournamentToDate(attendanceByRef[name].lastTournament) < tournamentDate) {
+                                attendanceByRef[name].lastTournament = tournament;
+                            }
                         }
                     }
                     if (event) {
@@ -2306,6 +2311,52 @@
         // Compare two seasons (returns -1 if a < b, 0 if equal, 1 if a > b)
         function compareSeasons(a, b) {
             return a.localeCompare(b);
+        }
+        
+        // Parse tournament name to a comparable date value
+        function parseTournamentToDate(tournament) {
+            if (!tournament) return null;
+            
+            // Extract year from tournament name (e.g., "Oct NAC 24" -> "24")
+            const yearMatch = tournament.match(/(\d{2})$/);
+            if (!yearMatch) return null;
+            
+            const year = parseInt('20' + yearMatch[1]);
+            
+            // Map month to numeric value
+            const monthMap = {
+                'Oct': 10,
+                'Nov': 11,
+                'Dec': 12,
+                'Jan': 1,
+                'Feb': 2,
+                'Jr Olympics': 2,
+                'Mar': 3,
+                'Apr': 4,
+                'May': 5,
+                'Jun': 6,
+                'Summer Nationals': 7
+            };
+            
+            // Find which month this tournament is
+            let month = 0;
+            for (const [key, val] of Object.entries(monthMap)) {
+                if (tournament.includes(key)) {
+                    month = val;
+                    break;
+                }
+            }
+            
+            // Adjust year for Jan-July tournaments (they belong to previous season year)
+            let adjustedYear = year;
+            if (month >= 1 && month <= 7) {
+                adjustedYear = year + 2000; // This is actually the calendar year
+            } else {
+                adjustedYear = year + 2000;
+            }
+            
+            // Create a comparable date value (YYYYMM format)
+            return adjustedYear * 100 + month;
         }
         
         // Show different attendance views
@@ -2896,6 +2947,95 @@
         // Add weapon analysis functions to global scope
         window.showWeaponAnalysisView = showWeaponAnalysisView;
         window.filterWeaponAnalysis = filterWeaponAnalysis;
+        
+        // Sort multi-weapon table
+        function sortMultiWeaponTable(column) {
+            if (!window.multiWeaponSort) {
+                window.multiWeaponSort = { column: 'nonPrimaryBouts', direction: 'desc' };
+            }
+            
+            if (window.multiWeaponSort.column === column) {
+                window.multiWeaponSort.direction = window.multiWeaponSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                window.multiWeaponSort.column = column;
+                window.multiWeaponSort.direction = column === 'name' ? 'asc' : 'desc';
+            }
+            
+            window.currentWeaponData.multiWeapon.sort((a, b) => {
+                let aVal = a[column];
+                let bVal = b[column];
+                
+                // Handle percentage values
+                if (column === 'nonPrimaryPercentage') {
+                    aVal = parseFloat(aVal) || 0;
+                    bVal = parseFloat(bVal) || 0;
+                }
+                
+                if (typeof aVal === 'string' && typeof bVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+                
+                if (window.multiWeaponSort.direction === 'asc') {
+                    return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+                } else {
+                    return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+                }
+            });
+            
+            document.getElementById('weaponAnalysisContent').innerHTML = createMultiWeaponTable(window.currentWeaponData.multiWeapon);
+        }
+        
+        // Sort single-weapon table
+        function sortSingleWeaponTable(weapon, column) {
+            if (!window.singleWeaponSort) {
+                window.singleWeaponSort = {};
+            }
+            
+            if (!window.singleWeaponSort[weapon]) {
+                window.singleWeaponSort[weapon] = { column: 'bouts', direction: 'desc' };
+            }
+            
+            if (window.singleWeaponSort[weapon].column === column) {
+                window.singleWeaponSort[weapon].direction = window.singleWeaponSort[weapon].direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                window.singleWeaponSort[weapon].column = column;
+                window.singleWeaponSort[weapon].direction = column === 'name' ? 'asc' : 'desc';
+            }
+            
+            // Sort the specific weapon data
+            const byWeapon = { epee: [], foil: [], saber: [] };
+            window.currentWeaponData.singleWeapon.forEach(ref => byWeapon[ref.weapon].push(ref));
+            
+            byWeapon[weapon].sort((a, b) => {
+                let aVal = a[column];
+                let bVal = b[column];
+                
+                if (typeof aVal === 'string' && typeof bVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+                
+                if (window.singleWeaponSort[weapon].direction === 'asc') {
+                    return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+                } else {
+                    return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+                }
+            });
+            
+            // Update the single weapon data with sorted version
+            const sortedSingleWeapon = [];
+            ['epee', 'foil', 'saber'].forEach(w => {
+                sortedSingleWeapon.push(...byWeapon[w].map(ref => ({...ref, weapon: w})));
+            });
+            window.currentWeaponData.singleWeapon = sortedSingleWeapon;
+            
+            document.getElementById('weaponAnalysisContent').innerHTML = createSingleWeaponTable(window.currentWeaponData.singleWeapon);
+        }
+        
+        // Add sorting functions to global scope
+        window.sortMultiWeaponTable = sortMultiWeaponTable;
+        window.sortSingleWeaponTable = sortSingleWeaponTable;
         
         // Initialize on load
         window.addEventListener('load', init);
