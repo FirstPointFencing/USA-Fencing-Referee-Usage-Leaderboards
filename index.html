@@ -470,7 +470,7 @@
                 for (const file of files) {
                     try {
                         // Fetch from GitHub repository
-                        const baseUrl = 'https://raw.githubusercontent.com/FirstPointFencing/USA-Fencing-Referee-Usage-Leaderboards/main/';
+                        const baseUrl = 'https://raw.githubusercontent.com/FirstPointFencing/USA-Fencing-Referee-Usage-Leaderboards/';
                         const fetchResponse = await fetch(baseUrl + file);
                         if (!fetchResponse.ok) {
                             throw new Error(`HTTP error! status: ${fetchResponse.status}`);
